@@ -51,7 +51,7 @@ details summary{cursor:pointer}.hide{display:none}
 <section id="t-docs" class="hide"><div class="card"><table><thead><tr><th>Получен</th><th>Тип</th><th>Номер</th><th>Статус</th><th>Отправитель → получатель</th><th>Ошибки</th><th>ID</th></tr></thead><tbody id="docs"></tbody></table></div></section>
 <section id="t-nk" class="hide">
 <div class="card"><h3>Карточка товара</h3><p style="color:var(--mut);margin-top:0">По карточкам ЧЗ отвечает на запросы о товаре (product/info), а 1С видит их через API Национального каталога. GTIN без карточки ЧЗ «не знает». Нажмите строку в списке, чтобы изменить карточку.</p><div class="row">
-<label>GTIN (пусто — новый)<input id="n-gtin" size="16"></label><label>Наименование<input id="n-name" size="34"></label><label>Товарная группа<input id="n-pg" value="lp" size="10"></label>
+<label>GTIN (пусто — новый)<input id="n-gtin" size="16"></label><label>Наименование<input id="n-name" size="34"></label><label>Товарная группа<select id="n-pg" class="pgsel" data-def="lp"></select></label>
 <label>ТН ВЭД<input id="n-tnved" size="12"></label><label>Бренд<input id="n-brand" size="14"></label><label>ИНН производителя<input id="n-inn" size="12"></label>
 <label>Статус<select id="n-st"><option value="published">Опубликована</option><option value="notsigned">Ожидает подписи</option><option value="draft">Черновик</option><option value="archived">Архив</option></select></label>
 <button class="b" onclick="nkSave()">Сохранить</button></div></div>
@@ -64,17 +64,17 @@ details summary{cursor:pointer}.hide{display:none}
 <div class="card"><h3>Отчёты</h3><table><thead><tr><th>Создан</th><th>Вид</th><th>Статус</th><th>Ошибки</th><th>ID</th></tr></thead><tbody id="reports"></tbody></table></div></section>
 <section id="t-auto" class="hide"><div class="card"><h3>Автосценарий: полный цикл ЧЗ</h3>
 <p style="color:var(--mut);margin-top:0">Проходит через прокси и TLS эмулятора так же, как 1С: авторизация → участник → СУЗ (соединение, заказ, коды, отчёт о нанесении) → ввод в оборот → агрегация → отгрузка → приёмка → вывод из оборота → разрешительный режим. Участники 7799000001 и 7799000002, данные остаются в эмуляторе.</p>
-<div class="row"><label>Товарная группа<input id="a-pg" value="lp" size="10"></label><button class="b" id="a-run" onclick="autotest()">Запустить</button><span id="a-sum"></span></div>
+<div class="row"><label>Товарная группа<select id="a-pg" class="pgsel" data-def="lp"></select></label><button class="b" id="a-run" onclick="autotest()">Запустить</button><span id="a-sum"></span></div>
 <table><thead><tr><th>#</th><th>Шаг</th><th>Итог</th><th>Детали</th><th>мс</th></tr></thead><tbody id="a-steps"></tbody></table></div></section>
 <section id="t-act" class="hide">
 <div class="card"><h3>Сгенерировать коды</h3><div class="row">
-<label>GTIN (пусто — новый)<input id="g-gtin" size="16"></label><label>Товарная группа<input id="g-pg" value="lp" size="10"></label>
+<label>GTIN (пусто — новый)<input id="g-gtin" size="16"></label><label>Товарная группа<select id="g-pg" class="pgsel" data-def="lp"></select></label>
 <label>Количество<input id="g-count" value="5" size="5"></label><label>Статус<select id="g-status"><option>INTRODUCED</option><option>EMITTED</option><option>APPLIED</option><option>RETIRED</option></select></label>
 <label>Владелец ИНН<input id="g-owner" size="12"></label><label><span><input type="checkbox" id="g-agg"> в короб (SSCC)</span></label>
 <button class="b" onclick="gen()">Создать</button></div><pre id="g-out" class="mono"></pre></div>
 <div class="card"><h3>Входящая отгрузка от поставщика (для приёмки в 1С)</h3><div class="row">
 <label>ИНН поставщика<input id="i-sender" value="7700000002" size="12"></label><label>ИНН получателя<input id="i-receiver" size="12"></label>
-<label>GTIN<input id="i-gtin" size="16"></label><label>ТГ<input id="i-pg" value="lp" size="8"></label><label>Кодов<input id="i-count" value="3" size="4"></label>
+<label>GTIN<input id="i-gtin" size="16"></label><label>Товарная группа<select id="i-pg" class="pgsel" data-def="lp"></select></label><label>Кодов<input id="i-count" value="3" size="4"></label>
 <button class="b" onclick="incoming()">Отгрузить</button></div><pre id="i-out" class="mono"></pre></div>
 <div class="card"><h3>Участник оборота</h3><div class="row"><label>ИНН<input id="p-inn" size="12"></label><label>Наименование<input id="p-name" size="30"></label>
 <label>Статус<select id="p-status"><option>REGISTERED</option><option>NOT_REGISTERED</option></select></label><button class="b" onclick="participant()">Сохранить</button></div></div>
@@ -96,7 +96,7 @@ $('codes').innerHTML=S.codes.map(c=>`<tr class="click" onclick='codeCard(${JSON.
 <td onclick="event.stopPropagation()" style="white-space:nowrap"><button title="Скопировать полный код (с GS и криптохвостом, как со сканера)" onclick='copyCode(${JSON.stringify(c.full||c.cis)})'>⧉ полный</button> <select onchange="post('_emu/code',{cis:'${esc(c.cis)}',status:this.value}).then(load)"><option>изменить…</option>${['EMITTED','APPLIED','INTRODUCED','RETIRED','WRITTEN_OFF','DISAGGREGATED'].map(s=>`<option>${s}</option>`).join('')}</select></td></tr>`).join('');
 $('docs').innerHTML=S.docs.map(d=>`<tr><td>${esc(d.received.slice(0,19).replace('T',' '))}</td><td>${esc(d.type)}</td><td>${esc(d.number)}</td><td class="${cls(d.status)}">${esc(d.status)}</td><td>${esc(d.sender_inn)} → ${esc(d.receiver_inn||'')}</td><td class="s-bad">${esc(JSON.parse(d.errors||'[]').join('; '))}</td><td class="mono"><a href="_emu/doc/${esc(d.id)}" target="_blank">${esc(d.id)}</a></td></tr>`).join('');
 $('orders').innerHTML=S.orders.map(o=>`<tr><td>${esc(o.created.slice(0,19).replace('T',' '))}</td><td class="mono">${esc(o.id)}</td><td>${esc(o.pg)}</td><td>${esc(o.inn)}</td><td class="${cls(o.status)}">${esc(o.status)}</td><td>${o.issued??0} / ${o.total??0}</td></tr>`).join('');
-$('reports').innerHTML=S.reports.map(r=>`<tr><td>${esc(r.created.slice(0,19).replace('T',' '))}</td><td>${esc(r.kind)}</td><td class="${cls(r.status)}">${esc(r.status)}</td><td class="s-bad">${esc(JSON.parse(r.errors||'[]').join('; '))}</td><td class="mono">${esc(r.id)}</td></tr>`).join('');home()}
+$('reports').innerHTML=S.reports.map(r=>`<tr><td>${esc(r.created.slice(0,19).replace('T',' '))}</td><td>${esc(r.kind)}</td><td class="${cls(r.status)}">${esc(r.status)}</td><td class="s-bad">${esc(JSON.parse(r.errors||'[]').join('; '))}</td><td class="mono">${esc(r.id)}</td></tr>`).join('');home();pgFill()}
 const HINT={default_inn:'ИНН по умолчанию (если не удалось взять из подписи)',strict:'Проверять статусы и владельца кодов',unknown_codes:"Неизвестные коды: '404' как ЧЗ или 'auto' — считать в обороте",doc_delay_sec:'Секунд «в обработке» у документа',order_delay_sec:'Секунд подготовки заказа СУЗ',reject_documents:'Отклонять все документы',reject_reason:'Текст ошибки при отклонении',auth_fail:'Отказывать в авторизации',token_ttl_hours:'Срок жизни токена, ч',nk_placeholder:'GTIN не из Нац. каталога: выдавать заглушку (иначе «не найден», как ЧЗ)',suz_require_nk:'СУЗ отклоняет заказ на GTIN без опубликованной карточки НК'};
 function renderSettings(){$('settings').innerHTML=Object.entries(S.settings).map(([k,v])=>`<div class="row"><label style="min-width:420px">${esc(HINT[k]||k)}${typeof v==='boolean'?`<input type="checkbox" data-k="${k}" ${v?'checked':''}>`:`<input data-k="${k}" value="${esc(v)}">`}</label></div>`).join('')}
 function saveSettings(){const d={};document.querySelectorAll('#settings [data-k]').forEach(i=>{const k=i.dataset.k,o=S.settings[k];d[k]=i.type==='checkbox'?i.checked:typeof o==='number'?Number(i.value):i.value});post('_emu/settings',d).then(load)}
@@ -108,7 +108,7 @@ $('a-steps').innerHTML=r.steps.map((s,i)=>`<tr><td>${i+1}</td><td>${esc(s.шаг
 catch(e){$('a-sum').innerHTML='<b class="s-bad">'+esc(e)+'</b>'}finally{$('a-run').disabled=false}}
 const NKST={published:'Опубликована',notsigned:'Ожидает подписи',draft:'Черновик',archived:'Архив'};let NK=[];
 async function nkLoad(){const q=$('nq').value;NK=await fetch('_emu/nk'+(q?'?q='+encodeURIComponent(q):'')).then(r=>r.json());
-$('nk').innerHTML=NK.length?NK.map((c,i)=>`<tr style="cursor:pointer" onclick="nkEdit(${i})"><td>${c.good_id}</td><td class="mono">${esc(c.gtin)}</td><td>${esc(c.name)}</td><td>${esc(c.pg)}</td><td>${esc(c.tnved)}</td><td>${esc(c.brand)}</td><td>${esc(c.inn)}</td><td class="${c.status==='published'?'s-ok':c.status==='archived'?'s-bad':'s-warn'}">${esc(NKST[c.status]||c.status)}</td>
+$('nk').innerHTML=NK.length?NK.map((c,i)=>`<tr style="cursor:pointer" onclick="nkEdit(${i})"><td>${c.good_id}</td><td class="mono">${esc(c.gtin)}</td><td>${esc(c.name)}</td><td title="${esc(c.pg)}">${esc((S.pgs||{})[c.pg]||c.pg)}</td><td>${esc(c.tnved)}</td><td>${esc(c.brand)}</td><td>${esc(c.inn)}</td><td class="${c.status==='published'?'s-ok':c.status==='archived'?'s-bad':'s-warn'}">${esc(NKST[c.status]||c.status)}</td>
 <td><button onclick="event.stopPropagation();if(confirm('Удалить карточку ${esc(c.gtin)}?'))post('_emu/nk/delete',{gtin:'${esc(c.gtin)}'}).then(nkLoad)">✕</button></td></tr>`).join(''):'<tr><td colspan="9" style="color:var(--mut)">Карточек нет. Они появляются при заказе кодов в СУЗ и генерации кодов, или добавьте вручную.</td></tr>'}
 function nkEdit(i){const c=NK[i];[['gtin','gtin'],['name','name'],['pg','pg'],['tnved','tnved'],['brand','brand'],['inn','inn']].forEach(([f,k])=>$('n-'+f).value=c[k]||'');$('n-st').value=c.status;window.scrollTo(0,0)}
 function nkSave(){post('_emu/nk',{gtin:$('n-gtin').value.trim(),name:$('n-name').value,pg:$('n-pg').value,tnved:$('n-tnved').value,brand:$('n-brand').value,inn:$('n-inn').value,status:$('n-st').value}).then(r=>{if(r.error_message)return alert(r.error_message);$('n-gtin').value=r.gtin;nkLoad()})}
@@ -127,5 +127,7 @@ $('dr-t').textContent='Код '+c.cis;$('dr-b').innerHTML=`<dl><dt>Статус<
 <h4>Ответ ЧЗ (cises/info)</h4><pre>${esc(JSON.stringify(i,null,1))}</pre>`;$('drawer').classList.add('open')}
 function copyCode(t){navigator.clipboard.writeText(t).then(()=>{const b=document.activeElement;if(b&&b.tagName==='BUTTON'){const o=b.textContent;b.textContent='✓ скопировано';setTimeout(()=>b.textContent=o,1200)}})}
 $('lq').oninput=()=>load();$('lerr').onchange=()=>load();$('c-proxy').textContent=location.host;
+function pgFill(){if(!S.pgs||document.querySelector('.pgsel option'))return;const o=Object.entries(S.pgs).map(([k,v])=>`<option value="${k}">${esc(v)} (${k})</option>`).join('');
+document.querySelectorAll('.pgsel').forEach(x=>{x.innerHTML=o;x.value=x.dataset.def})}
 $('q').oninput=()=>load();load();setInterval(()=>{if(tab!=='set'&&tab!=='act'&&tab!=='auto'&&tab!=='nk')load()},3000);
 </script></body></html>

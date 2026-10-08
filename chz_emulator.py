@@ -52,6 +52,17 @@ PG_IDS = {'lp': 1, 'shoes': 2, 'tobacco': 3, 'perfumery': 4, 'tires': 5, 'electr
           'pharma': 7, 'milk': 8, 'bicycle': 9, 'wheelchairs': 10, 'otp': 12, 'water': 13,
           'furs': 14, 'beer': 15, 'ncp': 16, 'bio': 17, 'antiseptic': 19, 'petfood': 20,
           'seafood': 21, 'nabeer': 22, 'softdrinks': 23, 'vetpharma': 26, 'grocery': 32}
+# Товарные группы для выбора в интерфейсе: код ЧЗ → название
+PG_NAMES = {'lp': 'Лёгкая промышленность (одежда, бельё)', 'shoes': 'Обувь', 'perfumery': 'Парфюмерия',
+            'tires': 'Шины и покрышки', 'electronics': 'Фототехника и электроника', 'tobacco': 'Табак',
+            'otp': 'Альтернативная табачная продукция', 'ncp': 'Никотинсодержащая продукция',
+            'milk': 'Молочная продукция', 'water': 'Упакованная вода', 'beer': 'Пиво и пивные напитки',
+            'nabeer': 'Безалкогольное пиво', 'softdrinks': 'Безалкогольные напитки', 'bio': 'БАДы',
+            'antiseptic': 'Антисептики', 'pharma': 'Лекарства', 'vetpharma': 'Ветеринарные препараты',
+            'petfood': 'Корма для животных', 'seafood': 'Морепродукты', 'grocery': 'Бакалея',
+            'vegetableoil': 'Растительные масла', 'conserve': 'Консервы', 'sweets': 'Кондитерские изделия',
+            'tea_coffee': 'Чай и кофе', 'cosmetics': 'Косметика и бытовая химия', 'chemistry': 'Бытовая химия',
+            'bicycle': 'Велосипеды', 'wheelchairs': 'Кресла-коляски', 'furs': 'Изделия из меха'}
 
 INTRODUCE = ('LP_INTRODUCE_GOODS', 'LP_INTRODUCE_OST', 'LP_INTRODUCE_GOODS_CROSSBORDER',
              'LP_GOODS_IMPORT', 'LP_FTS_INTRODUCE', 'LP_CONTRACT_COMMISSIONING', 'LP_RETURN',
@@ -1580,7 +1591,7 @@ def ui_state(h, chz, query=None, **k):
     if query.get('q'):
         codes_q += ' WHERE cis LIKE ? OR gtin LIKE ? OR owner_inn LIKE ? OR status LIKE ?'
         a = ['%' + query['q'] + '%'] * 4
-    ok({'settings': chz.s.settings(),
+    ok({'settings': chz.s.settings(), 'pgs': PG_NAMES,
         'stats': chz.s.q('SELECT status, COUNT(*) n FROM codes GROUP BY status'),
         'codes': chz.s.q(codes_q + ' ORDER BY rowid DESC LIMIT ?', *a, lim),
         'docs': [d | {'body': None, 'raw': None} for d in chz.s.q('SELECT * FROM docs ORDER BY received DESC LIMIT ?', lim)],
