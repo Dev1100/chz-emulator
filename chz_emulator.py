@@ -12,7 +12,7 @@ import argparse, base64, datetime as dt, email, email.policy, json, os, random, 
 import ssl, string, subprocess, sys, threading, time, traceback, uuid
 import xml.etree.ElementTree as ET
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlsplit, parse_qs
+from urllib.parse import urlsplit, parse_qs, unquote
 
 HERE = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))   # ресурсы: ui.html, расширение
 APP_DIR = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else HERE   # данные — рядом с exe
@@ -916,7 +916,7 @@ class Handler(BaseHTTPRequestHandler):
         chz = self.server.chz
         u = urlsplit(self.path)
         host = self.tunnel_host or u.hostname or (self.headers.get('Host') or '').split(':')[0]
-        path = u.path.lstrip('/')
+        path = unquote(u.path).lstrip('/')
         query = {k: v[-1] for k, v in parse_qs(u.query).items()}
         length = int(self.headers.get('Content-Length') or 0)
         raw = self.rfile.read(length) if length else b''
