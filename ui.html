@@ -20,13 +20,24 @@ details summary{cursor:pointer}.hide{display:none}
 </style></head><body>
 <header><h1>Эмулятор Честного Знака</h1>
 <nav id="nav"><button data-t="log" class="on">Журнал</button><button data-t="codes">Коды</button><button data-t="docs">Документы</button>
-<button data-t="suz">СУЗ</button><button data-t="auto">Автосценарий</button><button data-t="act">Действия</button><button data-t="set">Настройки</button></nav>
+<button data-t="nk">Нац. каталог</button><button data-t="suz">СУЗ</button><button data-t="auto">Автосценарий</button><button data-t="act">Действия</button><button data-t="set">Настройки</button></nav>
 <span class="stats" id="stats"></span></header>
 <main>
 <section id="t-log"><div class="card"><table><thead><tr><th>Время</th><th>Метод</th><th>Хост / путь</th><th>Код</th><th>мс</th></tr></thead><tbody id="log"></tbody></table></div></section>
 <section id="t-codes" class="hide"><div class="card"><div class="row"><input id="q" placeholder="поиск: код, GTIN, ИНН, статус" size="40"></div>
 <table><thead><tr><th>Код (cis)</th><th>GTIN</th><th>ТГ</th><th>Статус</th><th>Владелец</th><th>Упаковка</th><th>Родитель</th><th></th></tr></thead><tbody id="codes"></tbody></table></div></section>
 <section id="t-docs" class="hide"><div class="card"><table><thead><tr><th>Получен</th><th>Тип</th><th>Номер</th><th>Статус</th><th>Отправитель → получатель</th><th>Ошибки</th><th>ID</th></tr></thead><tbody id="docs"></tbody></table></div></section>
+<section id="t-nk" class="hide">
+<div class="card"><h3>Карточка товара</h3><p style="color:var(--mut);margin-top:0">По карточкам ЧЗ отвечает на запросы о товаре (product/info), а 1С видит их через API Национального каталога. GTIN без карточки ЧЗ «не знает». Нажмите строку в списке, чтобы изменить карточку.</p><div class="row">
+<label>GTIN (пусто — новый)<input id="n-gtin" size="16"></label><label>Наименование<input id="n-name" size="34"></label><label>Товарная группа<input id="n-pg" value="lp" size="10"></label>
+<label>ТН ВЭД<input id="n-tnved" size="12"></label><label>Бренд<input id="n-brand" size="14"></label><label>ИНН производителя<input id="n-inn" size="12"></label>
+<label>Статус<select id="n-st"><option value="published">Опубликована</option><option value="notsigned">Ожидает подписи</option><option value="draft">Черновик</option><option value="archived">Архив</option></select></label>
+<button class="b" onclick="nkSave()">Сохранить</button></div></div>
+<div class="card"><div class="row"><input id="nq" placeholder="поиск: GTIN или наименование" size="40"></div>
+<table><thead><tr><th>ID</th><th>GTIN</th><th>Наименование</th><th>ТГ</th><th>ТН ВЭД</th><th>Бренд</th><th>ИНН</th><th>Статус</th><th></th></tr></thead><tbody id="nk"></tbody></table></div>
+<div class="card"><h3>Импорт из CSV / Excel</h3><p style="color:var(--mut);margin-top:0">Колонки через «;» или табуляцию: GTIN; Наименование; ТГ; ТН ВЭД; Бренд; ИНН; Статус. Можно вставить строки, скопированные из Excel. Строки без GTIN (например, заголовок) пропускаются.</p>
+<textarea id="n-csv" rows="6" style="width:100%;font:12px Consolas,monospace" placeholder="04600000000015;Кроссовки мужские;shoes;6403990000;Бренд;7701234567;published"></textarea>
+<div class="row" style="margin-top:8px"><button class="b" onclick="nkImport()">Импортировать</button><span id="n-imp"></span></div></div></section>
 <section id="t-suz" class="hide"><div class="card"><h3>Заказы</h3><table><thead><tr><th>Создан</th><th>ID</th><th>ТГ</th><th>ИНН</th><th>Статус</th><th>Выдано / всего</th></tr></thead><tbody id="orders"></tbody></table></div>
 <div class="card"><h3>Отчёты</h3><table><thead><tr><th>Создан</th><th>Вид</th><th>Статус</th><th>Ошибки</th><th>ID</th></tr></thead><tbody id="reports"></tbody></table></div></section>
 <section id="t-auto" class="hide"><div class="card"><h3>Автосценарий: полный цикл ЧЗ</h3>
@@ -46,7 +57,7 @@ details summary{cursor:pointer}.hide{display:none}
 <div class="card"><h3>Участник оборота</h3><div class="row"><label>ИНН<input id="p-inn" size="12"></label><label>Наименование<input id="p-name" size="30"></label>
 <label>Статус<select id="p-status"><option>REGISTERED</option><option>NOT_REGISTERED</option></select></label><button class="b" onclick="participant()">Сохранить</button></div></div>
 <div class="card"><h3>Сброс</h3><button class="b" style="background:var(--bad);border-color:var(--bad)" onclick="if(confirm('Удалить все коды, документы и заказы?'))post('_emu/reset',{}).then(load)">Очистить данные</button>
-<a href="_emu/ca.crt" style="margin-left:12px">Скачать корневой сертификат</a></div></section>
+<a href="_emu/ca.crt" style="margin-left:12px">Скачать корневой сертификат</a><a href="_emu/extension.cfe" download="ЧЗ_БезПодписи.cfe" style="margin-left:12px">Скачать расширение 1С без подписи</a></div></section>
 <section id="t-set" class="hide"><div class="card"><div id="settings"></div><button class="b" onclick="saveSettings()">Сохранить</button></div></section>
 </main>
 <script>
@@ -63,7 +74,7 @@ $('codes').innerHTML=S.codes.map(c=>`<tr><td class="mono">${esc(c.cis)}</td><td 
 $('docs').innerHTML=S.docs.map(d=>`<tr><td>${esc(d.received.slice(0,19).replace('T',' '))}</td><td>${esc(d.type)}</td><td>${esc(d.number)}</td><td class="${cls(d.status)}">${esc(d.status)}</td><td>${esc(d.sender_inn)} → ${esc(d.receiver_inn||'')}</td><td class="s-bad">${esc(JSON.parse(d.errors||'[]').join('; '))}</td><td class="mono"><a href="_emu/doc/${esc(d.id)}" target="_blank">${esc(d.id)}</a></td></tr>`).join('');
 $('orders').innerHTML=S.orders.map(o=>`<tr><td>${esc(o.created.slice(0,19).replace('T',' '))}</td><td class="mono">${esc(o.id)}</td><td>${esc(o.pg)}</td><td>${esc(o.inn)}</td><td class="${cls(o.status)}">${esc(o.status)}</td><td>${o.issued??0} / ${o.total??0}</td></tr>`).join('');
 $('reports').innerHTML=S.reports.map(r=>`<tr><td>${esc(r.created.slice(0,19).replace('T',' '))}</td><td>${esc(r.kind)}</td><td class="${cls(r.status)}">${esc(r.status)}</td><td class="s-bad">${esc(JSON.parse(r.errors||'[]').join('; '))}</td><td class="mono">${esc(r.id)}</td></tr>`).join('')}
-const HINT={default_inn:'ИНН по умолчанию (если не удалось взять из подписи)',strict:'Проверять статусы и владельца кодов',unknown_codes:"Неизвестные коды: '404' как ЧЗ или 'auto' — считать в обороте",doc_delay_sec:'Секунд «в обработке» у документа',order_delay_sec:'Секунд подготовки заказа СУЗ',reject_documents:'Отклонять все документы',reject_reason:'Текст ошибки при отклонении',auth_fail:'Отказывать в авторизации',token_ttl_hours:'Срок жизни токена, ч'};
+const HINT={default_inn:'ИНН по умолчанию (если не удалось взять из подписи)',strict:'Проверять статусы и владельца кодов',unknown_codes:"Неизвестные коды: '404' как ЧЗ или 'auto' — считать в обороте",doc_delay_sec:'Секунд «в обработке» у документа',order_delay_sec:'Секунд подготовки заказа СУЗ',reject_documents:'Отклонять все документы',reject_reason:'Текст ошибки при отклонении',auth_fail:'Отказывать в авторизации',token_ttl_hours:'Срок жизни токена, ч',nk_placeholder:'GTIN не из Нац. каталога: выдавать заглушку (иначе «не найден», как ЧЗ)',suz_require_nk:'СУЗ отклоняет заказ на GTIN без опубликованной карточки НК'};
 function renderSettings(){$('settings').innerHTML=Object.entries(S.settings).map(([k,v])=>`<div class="row"><label style="min-width:420px">${esc(HINT[k]||k)}${typeof v==='boolean'?`<input type="checkbox" data-k="${k}" ${v?'checked':''}>`:`<input data-k="${k}" value="${esc(v)}">`}</label></div>`).join('')}
 function saveSettings(){const d={};document.querySelectorAll('#settings [data-k]').forEach(i=>{const k=i.dataset.k,o=S.settings[k];d[k]=i.type==='checkbox'?i.checked:typeof o==='number'?Number(i.value):i.value});post('_emu/settings',d).then(load)}
 function gen(){post('_emu/codes',{gtin:$('g-gtin').value,pg:$('g-pg').value,count:+$('g-count').value,status:$('g-status').value,owner_inn:$('g-owner').value,aggregate:$('g-agg').checked}).then(r=>{$('g-out').textContent=(r.box?'Короб: '+r.box+'\n':'')+r.codes.map(c=>c.replaceAll('\x1d','<GS>')).join('\n');load()})}
@@ -72,6 +83,14 @@ async function autotest(){$('a-run').disabled=true;$('a-sum').textContent='вы�
 try{const r=await post('_emu/autotest',{pg:$('a-pg').value});$('a-sum').innerHTML=`<b class="${r.ok?'s-ok':'s-bad'}">${r.ok?'Все шаги прошли':'Есть ошибки'}</b> — ${r.steps.filter(s=>s.ok).length} из ${r.всего}, ${r.мс} мс`;
 $('a-steps').innerHTML=r.steps.map((s,i)=>`<tr><td>${i+1}</td><td>${esc(s.шаг)}</td><td class="${s.ok?'s-ok':'s-bad'}">${s.ok?'OK':'Ошибка'}</td><td class="mono">${esc(s.детали)}</td><td>${s.мс}</td></tr>`).join('');load()}
 catch(e){$('a-sum').innerHTML='<b class="s-bad">'+esc(e)+'</b>'}finally{$('a-run').disabled=false}}
+const NKST={published:'Опубликована',notsigned:'Ожидает подписи',draft:'Черновик',archived:'Архив'};let NK=[];
+async function nkLoad(){const q=$('nq').value;NK=await fetch('_emu/nk'+(q?'?q='+encodeURIComponent(q):'')).then(r=>r.json());
+$('nk').innerHTML=NK.length?NK.map((c,i)=>`<tr style="cursor:pointer" onclick="nkEdit(${i})"><td>${c.good_id}</td><td class="mono">${esc(c.gtin)}</td><td>${esc(c.name)}</td><td>${esc(c.pg)}</td><td>${esc(c.tnved)}</td><td>${esc(c.brand)}</td><td>${esc(c.inn)}</td><td class="${c.status==='published'?'s-ok':c.status==='archived'?'s-bad':'s-warn'}">${esc(NKST[c.status]||c.status)}</td>
+<td><button onclick="event.stopPropagation();if(confirm('Удалить карточку ${esc(c.gtin)}?'))post('_emu/nk/delete',{gtin:'${esc(c.gtin)}'}).then(nkLoad)">✕</button></td></tr>`).join(''):'<tr><td colspan="9" style="color:var(--mut)">Карточек нет. Они появляются при заказе кодов в СУЗ и генерации кодов, или добавьте вручную.</td></tr>'}
+function nkEdit(i){const c=NK[i];[['gtin','gtin'],['name','name'],['pg','pg'],['tnved','tnved'],['brand','brand'],['inn','inn']].forEach(([f,k])=>$('n-'+f).value=c[k]||'');$('n-st').value=c.status;window.scrollTo(0,0)}
+function nkSave(){post('_emu/nk',{gtin:$('n-gtin').value.trim(),name:$('n-name').value,pg:$('n-pg').value,tnved:$('n-tnved').value,brand:$('n-brand').value,inn:$('n-inn').value,status:$('n-st').value}).then(r=>{if(r.error_message)return alert(r.error_message);$('n-gtin').value=r.gtin;nkLoad()})}
+function nkImport(){post('_emu/nk/import',{csv:$('n-csv').value}).then(r=>{$('n-imp').textContent=`Загружено: ${r.imported}`+(r.skipped.length?`, пропущено строк: ${r.skipped.length}`:'');nkLoad()})}
+$('nq').oninput=()=>nkLoad();document.querySelector('[data-t="nk"]').addEventListener('click',nkLoad);
 function participant(){post('_emu/participant',{inn:$('p-inn').value,name:$('p-name').value,status:$('p-status').value}).then(load)}
-$('q').oninput=()=>load();load();setInterval(()=>{if(tab!=='set'&&tab!=='act'&&tab!=='auto')load()},3000);
+$('q').oninput=()=>load();load();setInterval(()=>{if(tab!=='set'&&tab!=='act'&&tab!=='auto'&&tab!=='nk')load()},3000);
 </script></body></html>

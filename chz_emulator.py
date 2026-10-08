@@ -1440,6 +1440,13 @@ def nk_key(query):
         raise Resp(401, {'apiversion': 3, 'error': {'code': 401, 'message': 'Не передан apikey'}})
 
 
+@route('GET', r'_emu/extension\.cfe', admin=True)
+def ui_extension(h, chz, **k):
+    """Расширение 1С ЧЗ_БезПодписи (подпись-заглушка, только в тестовом контуре ИС МП)."""
+    with open(os.path.join(HERE, 'extension', 'ЧЗ_БезПодписи.cfe'), 'rb') as f:
+        raise Resp(200, f.read(), 'application/octet-stream')
+
+
 def nk_view(c):
     return {'good_id': c['good_id'], 'good_name': c['name'], 'brand_name': c['brand'] or None,
             'identified_by': [{'value': c['gtin'], 'type': 'gtin', 'multiplier': 1, 'level': 'trade-unit'}],

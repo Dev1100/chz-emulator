@@ -43,3 +43,5 @@ _backup*/
 *.key
 *recovery-codes*
 Доступы*
+docs/shots/raw/
+docs/shots/marks.json
