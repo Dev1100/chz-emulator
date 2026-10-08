@@ -214,4 +214,26 @@ def run(port, cafile, pg='lp'):
         need(c['found'] and c['realizable'] and c['isOwner'], f'codes/check: {c}')
         return f"площадок {len(cdn['hosts'])}, код можно продавать"
 
+    @step('Национальный каталог: product/info, неизвестный GTIN, подписание карточки через API НК')
+    def _():
+        cl.token = ctx['tok_' + SELLER]
+        st, pi = cl.call('POST', 'api/v4/true-api/product/info', {'gtins': [ctx['gtin'], '04699999999990']})
+        need(st == 200 and [r['gtin'] for r in pi['results']] == [ctx['gtin']], f'product/info: {pi}')
+        adm = http.client.HTTPConnection('127.0.0.1', port, timeout=15)
+        draft = E.make_gtin()
+        adm.request('POST', '/_emu/nk', json.dumps({'gtin': draft, 'name': 'Кроссовки автосценарий', 'pg': pg,
+                                                    'inn': SELLER, 'status': 'notsigned'}),
+                    {'Content-Type': 'application/json'})
+        good_id = json.loads(adm.getresponse().read())['good_id']
+        cl.token, key = None, 'apikey=emu-key'
+        nk = 'api.integrators.nk.crptech.ru'
+        st, doc = cl.call('POST', f'v3/feed-product-document?{key}&format=json', {'gtins': [draft]}, host=nk)
+        need(st == 200 and doc['result']['xmls'][0]['goodId'] == good_id, f'feed-product-document: {doc}')
+        st, sg = cl.call('POST', f'v3/feed-product-sign-pkcs?{key}&format=json',
+                         [{'goodId': good_id, 'base64Xml': doc['result']['xmls'][0]['xml'], 'signature': 'c2ln'}], host=nk)
+        need(sg['result']['signed'] == [good_id], f'sign-pkcs: {sg}')
+        st, fp = cl.call('GET', f'v3/feed-product?{key}&format=json&gtin={draft}', host=nk)
+        need(fp['result'][0]['good_status'] == 'published', f'feed-product: {fp}')
+        return f"карточка {ctx['gtin']} найдена, чужой GTIN — нет; {draft}: notsigned → published"
+
     return steps

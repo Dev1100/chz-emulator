@@ -15,9 +15,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit, parse_qs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-EMULATED = re.compile(r'(^|\.)(crpt\.ru|crptech\.ru|crpt\.tech)$', re.I)
+NK_PROD = 'xn--80aqu.xn----7sbabas4ajkhfocclk9d3cvfsa.xn--p1ai'   # апи.национальный-каталог.рф
+EMULATED = re.compile(r'(^|\.)(crpt\.ru|crptech\.ru|crpt\.tech|xn--80aqu\.xn----7sbabas4ajkhfocclk9d3cvfsa\.xn--p1ai'
+                      r'|апи\.национальный-каталог\.рф)$', re.I)
 SAN = ['*.crpt.ru', '*.sandbox.crptech.ru', '*.crptech.ru', 'crpt.ru', 'crptech.ru',
-       '*.mark.crpt.ru', '*.crpt.tech', 'localhost']
+       '*.mark.crpt.ru', '*.crpt.tech', '*.nk.crptech.ru', '*.integrators.nk.crptech.ru', NK_PROD, 'localhost']
 GS = '\x1d'
 
 DEFAULT_SETTINGS = {
@@ -30,6 +32,8 @@ DEFAULT_SETTINGS = {
     'reject_reason': 'Документ отклонён эмулятором (тест)',
     'auth_fail': False,                # simpleSignIn отвечает 401
     'token_ttl_hours': 10,
+    'nk_placeholder': False,           # GTIN не из Нац. каталога: False — «не найден» как в ЧЗ, True — заглушка
+    'suz_require_nk': False,           # заказ СУЗ на GTIN без опубликованной карточки НК отклоняется
 }
 
 # Шаблоны кодов маркировки по товарным группам: длина серийного, хвосты (AI, длина)
@@ -154,13 +158,17 @@ class Store:
             created TEXT, codes TEXT);
         CREATE TABLE IF NOT EXISTS reports(id TEXT PRIMARY KEY, kind TEXT, oms_id TEXT, inn TEXT,
             status TEXT, created TEXT, ready_at REAL, body TEXT, errors TEXT, doc_id TEXT);
-        CREATE TABLE IF NOT EXISTS products(gtin TEXT PRIMARY KEY, name TEXT, pg TEXT, inn TEXT,
-            tnved TEXT, brand TEXT);
+        CREATE TABLE IF NOT EXISTS nk(good_id INTEGER PRIMARY KEY AUTOINCREMENT, gtin TEXT UNIQUE, name TEXT,
+            brand TEXT, tnved TEXT, pg TEXT, inn TEXT, status TEXT, created TEXT, attrs TEXT);
         CREATE TABLE IF NOT EXISTS participants(inn TEXT PRIMARY KEY, name TEXT, status TEXT, pgs TEXT);
         CREATE TABLE IF NOT EXISTS tokens(token TEXT PRIMARY KEY, inn TEXT, kind TEXT, expires REAL);
         CREATE TABLE IF NOT EXISTS mods(id TEXT PRIMARY KEY, inn TEXT, fias TEXT, kpp TEXT,
             address TEXT, pgs TEXT);
         ''')
+        if self.one("SELECT name FROM sqlite_master WHERE name='products'"):   # старая база — в Нац. каталог
+            self.db.execute("INSERT OR IGNORE INTO nk(gtin, name, brand, tnved, pg, inn, status, created) "
+                            "SELECT gtin, name, brand, tnved, pg, inn, 'published', '' FROM products")
+            self.db.execute('DROP TABLE products')
 
     def q(self, sql, *a):
         with self.lock:
@@ -221,10 +229,35 @@ class Store:
                 return c
         return None
 
+    @staticmethod
+    def norm_gtin(gtin):
+        g = str(gtin or '').strip()
+        return g.zfill(14) if g.isdigit() and len(g) < 14 else g
+
+    def nk_card(self, gtin):
+        return self.one('SELECT * FROM nk WHERE gtin=?', self.norm_gtin(gtin))
+
+    def nk_put(self, gtin, name=None, pg=None, inn=None, tnved='', brand='', status='published'):
+        gtin = self.norm_gtin(gtin)
+        old = self.nk_card(gtin)
+        if old:
+            self.x('UPDATE nk SET name=?, brand=?, tnved=?, pg=?, inn=?, status=? WHERE gtin=?',
+                   name or old['name'], brand or old['brand'], tnved or old['tnved'], pg or old['pg'],
+                   inn or old['inn'], status or old['status'], gtin)
+        else:
+            self.x('INSERT INTO nk(gtin, name, brand, tnved, pg, inn, status, created) VALUES(?,?,?,?,?,?,?,?)',
+                   gtin, name or f'Товар {gtin}', brand or '', tnved or '', pg, inn, status or 'published', iso())
+        return self.nk_card(gtin)
+
     def product(self, gtin):
-        p = self.one('SELECT * FROM products WHERE gtin=?', gtin)
-        return p or {'gtin': gtin, 'name': f'Товар {gtin} (эмулятор)', 'pg': None,
-                     'inn': None, 'tnved': '6403990000', 'brand': 'Эмулятор'}
+        """Карточка из Национального каталога; None — товара в каталоге нет."""
+        p = self.nk_card(gtin)
+        if p:
+            return p
+        if self.setting('nk_placeholder'):
+            return {'gtin': gtin, 'name': f'Товар {gtin} (нет в НК)', 'pg': None, 'inn': None,
+                    'tnved': '', 'brand': '', 'status': None, 'good_id': None}
+        return None
 
     def participant(self, inn):
         p = self.one('SELECT * FROM participants WHERE inn=?', inn)
@@ -283,7 +316,7 @@ class Chz:
 
     # --- коды
     def cis_info(self, c, requested=None, with_children=True):
-        p = self.s.product(c['gtin']) if c['gtin'] else {}
+        p = (self.s.product(c['gtin']) if c['gtin'] else None) or {}
         owner = self.s.participant(c['owner_inn']) if c['owner_inn'] else None
         producer = self.s.participant(c['producer_inn']) if c['producer_inn'] else None
         info = {
@@ -606,18 +639,26 @@ class Chz:
         delay = float(self.s.setting('order_delay_sec') or 0)
         self.s.x('INSERT INTO orders VALUES(?,?,?,?,?,?,?,?,?)', oid, oms_id, pg, inn, 'CREATED', iso(),
                  time.time() + delay, json.dumps(body, ensure_ascii=False), None)
+        missing = []
         for p in body.get('products') or []:
             qty = int(p.get('quantity') or 0)
             gtin = p.get('gtin')
-            if gtin and not self.s.one('SELECT 1 FROM products WHERE gtin=?', gtin):
-                self.s.x('INSERT INTO products VALUES(?,?,?,?,?,?)', gtin, f'Товар {gtin}', pg, inn,
-                         p.get('tnved') or p.get('tnvedCode') or '', 'Эмулятор')
+            card = self.s.nk_card(gtin) if gtin else None
+            if gtin and (not card or card['status'] != 'published'):
+                if self.s.setting('suz_require_nk'):
+                    missing.append(gtin)
+                elif not card:
+                    self.s.nk_put(gtin, pg=pg, inn=inn, tnved=p.get('tnved') or p.get('tnvedCode') or '')
             # SELF_MADE: коды пришли от клиента (serialNumbers)
             serials = p.get('serialNumbers') or []
             self.s.x('INSERT OR REPLACE INTO buffers VALUES(?,?,?,?,?,?)', oid, gtin, qty or len(serials), 0, 'PENDING', None)
             if serials:
                 p['_serials'] = serials
         self.s.x('UPDATE orders SET body=? WHERE id=?', json.dumps(body, ensure_ascii=False), oid)
+        if missing:
+            reason = 'Нет опубликованной карточки в Национальном каталоге: ' + ', '.join(missing)
+            self.s.x("UPDATE orders SET status='DECLINED', decline=? WHERE id=?", reason, oid)
+            self.s.x("UPDATE buffers SET status='REJECTED' WHERE order_id=?", oid)
         return oid, int(delay * 1000) + 1000
 
     def refresh_order(self, o):
@@ -636,6 +677,7 @@ class Chz:
                 'unavailableCodes': 0, 'availableCodes': left, 'bufferStatus': status,
                 'poolsExhausted': status == 'EXHAUSTED', 'totalPassed': b['issued'], 'omsId': o['oms_id'],
                 'expiredDate': int((time.time() + 30 * 86400) * 1000), 'productionOrderId': o['id'],
+                'rejectionReason': o.get('decline') if status == 'REJECTED' else None,
                 'poolInfos': [{'status': 'READY' if status != 'PENDING' else 'PENDING',
                                'quantity': b['total'], 'leftInRegistrar': left, 'registrarId': 'emu-registrar',
                                'isRegistrarReady': True, 'registrarErrorCount': 0, 'lastRegistrarErrorTimestamp': 0}]}
@@ -989,6 +1031,8 @@ def sim_mods(h, chz, **k):
 
 def product_view(chz, gtin):
     p = chz.s.product(gtin)
+    if not p:
+        return None
     return {'gtin': gtin, 'name': p['name'], 'inn': p['inn'], 'brand': p['brand'],
             'productGroupId': PG_IDS.get(p['pg']), 'productGroup': p['pg'], 'tnVedCode': p['tnved'],
             'tnVedCode10': p['tnved'], 'packageType': 'UNIT', 'isKit': False, 'isSet': False,
@@ -1000,7 +1044,8 @@ def product_info(h, chz, data=None, query=None, **k):
     h.inn()
     gtins = (data or {}).get('gtins') if isinstance(data, dict) else data
     gtins = gtins or [g for g in (query.get('gtins') or '').split(',') if g]
-    ok({'results': [product_view(chz, g) for g in gtins], 'total': len(gtins), 'errorCode': None})
+    found = [v for v in (product_view(chz, g) for g in gtins) if v]
+    ok({'results': found, 'total': len(found), 'errorCode': None})
 
 
 @route('GET', r'api/v4/true-api/product/info|api/v3/true-api/product/info')
@@ -1011,7 +1056,7 @@ def product_info_get(h, chz, query=None, **k):
 @route('GET', r'api/v4/true-api/product/gtin')
 def product_gtin(h, chz, query=None, **k):
     inn = h.inn()
-    rows = chz.s.q('SELECT gtin FROM products WHERE inn=? OR ? IS NULL', query.get('inn') or inn, None)
+    rows = chz.s.q("SELECT gtin FROM nk WHERE inn=? AND status='published'", query.get('inn') or inn)
     gt = [r['gtin'] for r in rows]
     ok({'results': gt, 'gtins': gt, 'total': len(gt)})
 
@@ -1203,7 +1248,7 @@ def codes_check(h, chz, data=None, **k):
             out.append({'cis': v, 'valid': False, 'found': False, 'verified': False, 'errorCode': 1,
                         'realizable': False, 'utilised': False, 'isBlocked': False, 'sold': False})
             continue
-        p = chz.s.product(c['gtin']) if c['gtin'] else {}
+        p = (chz.s.product(c['gtin']) if c['gtin'] else None) or {}
         out.append({'cis': c['cis'], 'printView': c['cis'], 'gtin': c['gtin'], 'valid': True, 'found': True,
                     'verified': True, 'errorCode': 0, 'groupIds': [PG_IDS.get(c['pg'], 0)],
                     'realizable': c['status'] == 'INTRODUCED' and not c['status_ex'],
@@ -1386,10 +1431,128 @@ def suz_mod(h, chz, query=None, **k):
 def suz_product_info(h, chz, data=None, **k):
     suz_inn(h)
     gt = (data or {}).get('gtins') or []
-    ok({'products': [{'gtin': g, 'name': chz.s.product(g)['name'], 'productAttributes': {}} for g in gt]})
+    ok({'products': [{'gtin': g, 'name': (chz.s.product(g) or {}).get('name', ''), 'productAttributes': {}} for g in gt]})
+
+
+# ---- Национальный каталог (api.integrators.nk.crptech.ru / апи.национальный-каталог.рф), API v3
+def nk_key(query):
+    if not query.get('apikey'):
+        raise Resp(401, {'apiversion': 3, 'error': {'code': 401, 'message': 'Не передан apikey'}})
+
+
+def nk_view(c):
+    return {'good_id': c['good_id'], 'good_name': c['name'], 'brand_name': c['brand'] or None,
+            'identified_by': [{'value': c['gtin'], 'type': 'gtin', 'multiplier': 1, 'level': 'trade-unit'}],
+            'good_status': c['status'], 'good_detailed_status': [c['status']], 'tnved': c['tnved'] or None,
+            'producer_inn': c['inn'], 'categories': [{'cat_id': PG_IDS.get(c['pg'], 0), 'cat_name': c['pg']}],
+            'good_signed': c['status'] == 'published', 'updated_date': c['created']}
+
+
+def nk_select(chz, gtins=(), ids=()):
+    rows = []
+    for g in gtins:
+        c = chz.s.nk_card(g)
+        rows += [c] if c else []
+    for i in ids:
+        c = chz.s.one('SELECT * FROM nk WHERE good_id=?', int(i))
+        rows += [c] if c else []
+    return rows
+
+
+@route('GET', r'v3/feed-product|v3/product')
+def nk_feed_product(h, chz, query=None, **k):
+    nk_key(query)
+    gtins = [g for g in (query.get('gtins') or query.get('gtin') or '').split(';') if g]
+    ids = [i for i in (query.get('good_ids') or query.get('good_id') or '').split(';') if i]
+    rows = nk_select(chz, gtins, ids) if gtins or ids else chz.s.q('SELECT * FROM nk ORDER BY good_id LIMIT 1000')
+    ok({'apiversion': 3, 'result': [nk_view(c) for c in rows]})
+
+
+@route('POST', r'v3/feed-product-document')
+def nk_feed_document(h, chz, query=None, data=None, **k):
+    nk_key(query)
+    d = data or {}
+    xmls, errors = [], []
+    asked = [(g, None) for g in d.get('gtins') or []] + [(None, i) for i in d.get('goodIds') or []]
+    for g, i in asked:
+        found = nk_select(chz, [g]) if g else nk_select(chz, ids=[i])
+        c = found[0] if found else None
+        if not c:
+            errors.append({'gtin': g, 'goodId': i, 'message': 'Товар не найден в Национальном каталоге'})
+        elif c['status'] == 'published':
+            errors.append({'gtin': c['gtin'], 'goodId': c['good_id'], 'message': 'Карточка уже подписана'})
+        else:
+            xml = (f'<?xml version="1.0" encoding="UTF-8"?><good id="{c["good_id"]}"><gtin>{c["gtin"]}</gtin>'
+                   f'<name>{c["name"]}</name><tnved>{c["tnved"] or ""}</tnved></good>')
+            xmls.append({'goodId': c['good_id'], 'gtin': c['gtin'], 'xml': base64.b64encode(xml.encode()).decode()})
+    ok({'apiversion': 3, 'result': {'xmls': xmls, 'errors': errors}})
+
+
+@route('POST', r'v3/feed-product-sign-pkcs')
+def nk_sign(h, chz, query=None, data=None, **k):
+    nk_key(query)
+    signed, errors = [], []
+    for it in data if isinstance(data, list) else []:
+        c = chz.s.one('SELECT * FROM nk WHERE good_id=?', int(it.get('goodId') or 0))
+        if not c:
+            errors.append({'goodId': it.get('goodId'), 'message': 'Товар не найден'})
+            continue
+        chz.s.x("UPDATE nk SET status='published' WHERE good_id=?", c['good_id'])   # подпись не проверяется
+        signed.append(c['good_id'])
+    ok({'apiversion': 3, 'result': {'signed': signed, 'errors': errors}})
 
 
 # ---- веб-интерфейс и админ-API
+@route('GET', r'_emu/nk', admin=True)
+def ui_nk(h, chz, query=None, **k):
+    q = query.get('q')
+    rows = chz.s.q('SELECT * FROM nk WHERE gtin LIKE ? OR name LIKE ? ORDER BY good_id DESC LIMIT 1000',
+                   f'%{q}%', f'%{q}%') if q else chz.s.q('SELECT * FROM nk ORDER BY good_id DESC LIMIT 1000')
+    ok(rows)
+
+
+@route('POST', r'_emu/nk', admin=True)
+def ui_nk_put(h, chz, data=None, **k):
+    d = data or {}
+    gtin = d.get('gtin') or make_gtin()
+    if not re.fullmatch(r'\d{8,14}', chz.s.norm_gtin(gtin)):
+        raise err(400, f'GTIN должен быть из 8–14 цифр: {gtin}')
+    ok(chz.s.nk_put(gtin, d.get('name'), d.get('pg'), d.get('inn'), d.get('tnved') or '', d.get('brand') or '',
+                    d.get('status') or 'published'))
+
+
+@route('POST', r'_emu/nk/import', admin=True)
+def ui_nk_import(h, chz, data=None, **k):
+    """CSV/TSV: GTIN;Наименование;ТГ;ТН ВЭД;Бренд;ИНН;Статус. Строки без GTIN в первой колонке пропускаются."""
+    n, bad = 0, []
+    for line in (data or {}).get('csv', '').splitlines():
+        cols = [c.strip() for c in re.split(r'[;\t]', line)]
+        if not line.strip():
+            continue
+        if not re.fullmatch(r'\d{8,14}', cols[0]):
+            bad.append(line)
+            continue
+        cols += [''] * (7 - len(cols))
+        chz.s.nk_put(cols[0], cols[1] or None, cols[2] or None, cols[5] or None, cols[3], cols[4], cols[6] or 'published')
+        n += 1
+    ok({'imported': n, 'skipped': bad})
+
+
+@route('POST', r'_emu/nk/delete', admin=True)
+def ui_nk_delete(h, chz, data=None, **k):
+    chz.s.x('DELETE FROM nk WHERE gtin=?', chz.s.norm_gtin((data or {}).get('gtin')))
+    ok({})
+
+
+@route('GET', r'_emu/code/(.+)', admin=True)
+def ui_code_info(h, chz, args=(), **k):
+    from urllib.parse import unquote
+    c = chz.s.find_code(unquote(args[0]))
+    if not c:
+        raise err(404, 'Код не найден')
+    docs = chz.s.q('SELECT id, type, status, number, received FROM docs WHERE body LIKE ? ORDER BY received',
+                   '%' + c['cis'] + '%')
+    ok({'code': c, 'cisInfo': chz.cis_info(c), 'nk': chz.s.nk_card(c['gtin']) if c['gtin'] else None, 'docs': docs})
 @route('GET', r'', admin=True)
 def ui(h, chz, **k):
     with open(os.path.join(HERE, 'ui.html'), 'rb') as f:
@@ -1418,7 +1581,7 @@ def ui_state(h, chz, query=None, **k):
                           'ORDER BY created DESC LIMIT ?', lim),
         'reports': chz.s.q('SELECT id, kind, status, created, errors FROM reports ORDER BY created DESC LIMIT ?', lim),
         'participants': chz.s.q('SELECT * FROM participants'),
-        'products': chz.s.q('SELECT * FROM products ORDER BY rowid DESC LIMIT ?', lim),
+        'nk': chz.s.q('SELECT * FROM nk ORDER BY good_id DESC LIMIT ?', lim),
         'log': list(reversed(chz.log[-lim:]))})
 
 
@@ -1444,9 +1607,8 @@ def ui_codes(h, chz, data=None, **k):
     gtin = d.get('gtin') or make_gtin()
     owner = d.get('owner_inn') or chz.s.setting('default_inn')
     status = d.get('status') or 'INTRODUCED'
-    if not chz.s.one('SELECT 1 FROM products WHERE gtin=?', gtin):
-        chz.s.x('INSERT INTO products VALUES(?,?,?,?,?,?)', gtin, d.get('name') or f'Товар {gtin}', pg,
-                d.get('producer_inn') or owner, d.get('tnved') or '', 'Эмулятор')
+    if not chz.s.nk_card(gtin):
+        chz.s.nk_put(gtin, d.get('name'), pg, d.get('producer_inn') or owner, d.get('tnved') or '', d.get('brand') or '')
     rows, out = [], []
     for _ in range(int(d.get('count') or 1)):
         cis, full = make_code(gtin, pg)
@@ -1526,7 +1688,7 @@ def ui_autotest(h, chz, data=None, **k):
         'всего': SCENARIO_STEPS, 'мс': int((time.time() - t0) * 1000)})
 
 
-SCENARIO_STEPS = 12
+SCENARIO_STEPS = 13
 
 
 @route('POST', r'_emu/reset', admin=True)
@@ -1551,8 +1713,64 @@ def ensure_certs(certdir):
     os.makedirs(certdir, exist_ok=True)
     ca_key, ca_crt = os.path.join(certdir, 'ca.key'), os.path.join(certdir, 'ca.crt')
     key, crt = os.path.join(certdir, 'server.key'), os.path.join(certdir, 'server.crt')
-    if os.path.exists(crt) and os.path.exists(ca_crt):
+    san_file = os.path.join(certdir, 'san.txt')
+    san_now = ','.join(SAN)
+    same_san = os.path.exists(san_file) and open(san_file).read() == san_now
+    if os.path.exists(crt) and os.path.exists(ca_crt) and same_san:
         return crt, key
+    try:
+        _certs_cryptography(ca_key, ca_crt, key, crt)
+    except ImportError:
+        _certs_openssl(certdir, ca_key, ca_crt, key, crt)
+    with open(san_file, 'w') as f:
+        f.write(san_now)
+    return crt, key
+
+
+def _certs_cryptography(ca_key, ca_crt, key, crt):
+    """Корневой CA создаётся один раз (его доверяют в Windows), серверный перевыпускается при смене SAN."""
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.x509.oid import NameOID, ExtendedKeyUsageOID
+    import ipaddress
+    pem = serialization.Encoding.PEM
+    t0 = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=1)
+    if os.path.exists(ca_crt) and os.path.exists(ca_key):
+        ca_k = serialization.load_pem_private_key(open(ca_key, 'rb').read(), None)
+        ca_c = x509.load_pem_x509_certificate(open(ca_crt, 'rb').read())
+    else:
+        ca_k = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, 'CHZ Emulator Root CA'),
+                          x509.NameAttribute(NameOID.ORGANIZATION_NAME, 'chz-emulator')])
+        ca_c = (x509.CertificateBuilder().subject_name(name).issuer_name(name).public_key(ca_k.public_key())
+                .serial_number(x509.random_serial_number()).not_valid_before(t0)
+                .not_valid_after(t0 + dt.timedelta(days=3650))
+                .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+                .add_extension(x509.KeyUsage(False, False, False, False, False, True, True, False, False), critical=True)
+                .add_extension(x509.SubjectKeyIdentifier.from_public_key(ca_k.public_key()), critical=False)
+                .sign(ca_k, hashes.SHA256()))
+        open(ca_key, 'wb').write(ca_k.private_bytes(pem, serialization.PrivateFormat.TraditionalOpenSSL,
+                                                    serialization.NoEncryption()))
+        open(ca_crt, 'wb').write(ca_c.public_bytes(pem))
+    k = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    c = (x509.CertificateBuilder().subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, '*.crpt.ru')]))
+         .issuer_name(ca_c.subject).public_key(k.public_key()).serial_number(x509.random_serial_number())
+         .not_valid_before(t0).not_valid_after(t0 + dt.timedelta(days=825))
+         .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=False)
+         .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
+         .add_extension(x509.KeyUsage(True, False, True, False, False, False, False, False, False), critical=True)
+         .add_extension(x509.SubjectKeyIdentifier.from_public_key(k.public_key()), critical=False)
+         .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_k.public_key()), critical=False)
+         .add_extension(x509.SubjectAlternativeName([x509.DNSName(s) for s in SAN] +
+                                                    [x509.IPAddress(ipaddress.ip_address('127.0.0.1'))]), critical=False)
+         .sign(ca_k, hashes.SHA256()))
+    open(key, 'wb').write(k.private_bytes(pem, serialization.PrivateFormat.TraditionalOpenSSL,
+                                          serialization.NoEncryption()))
+    open(crt, 'wb').write(c.public_bytes(pem) + ca_c.public_bytes(pem))   # цепочка: сервер + корень
+
+
+def _certs_openssl(certdir, ca_key, ca_crt, key, crt):
     ossl = find_openssl()
     env = dict(os.environ, MSYS_NO_PATHCONV='1', MSYS2_ARG_CONV_EXCL='*')
     run = lambda *a: subprocess.run([ossl, *a], check=True, env=env, capture_output=True)

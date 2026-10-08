@@ -55,6 +55,20 @@ def main():
     st, info = cl.call('POST', 'api/v3/true-api/cises/info', [block])
     assert sorted(info[0]['cisInfo']['child']) == sorted(packs), info
 
+    # СУЗ при suz_require_nk: заказ на GTIN без карточки НК отклоняется
+    srv.chz.s.set_setting('suz_require_nk', True)
+    cl.token = None
+    st, con = cl.call('POST', 'api/v3/integration/connection?omsId=o', {}, host=scenario.SUZ_HOST)
+    st, stok = cl.call('POST', f"api/v3/true-api/auth/simpleSignIn/{con['omsConnection']}", {'data': 'x', 'inn': INN})
+    suz = {'clientToken': stok['token']}
+    st, o = cl.call('POST', 'api/v3/order?omsId=o', {'productGroup': 'lp', 'products': [
+        {'gtin': '04699999999990', 'quantity': 1}]}, host=scenario.SUZ_HOST, headers=suz)
+    st, lst = cl.call('GET', f"api/v3/order/list?omsId=o&orderId={o['orderId']}", host=scenario.SUZ_HOST, headers=suz)
+    info = lst['orderInfos'][0]
+    assert info['orderStatus'] == 'DECLINED' and 'Национальном каталоге' in info['declineReason'], info
+    srv.chz.s.set_setting('suz_require_nk', False)
+    cl.token = srv.chz.jwt(INN)
+
     # без токена — 401, неизвестный метод — 404, битый JSON — 400
     cl.token = None
     assert cl.call('POST', 'api/v3/true-api/cises/info', [packs[0]])[0] == 401
