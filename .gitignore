@@ -1,0 +1,45 @@
+data/
+stand/logs/
+stand/*.result.json
+stand/seed.json
+__pycache__/
+# --- общий блок H:\Проекты (sync_projects.py) ---
+# базы 1С, логи, временное
+*.1CD
+*.1CL
+*.cfl
+*.cgr
+1Cv8Log/
+*.mdmp
+*.log
+tmp*/
+temp/
+base_*/
+__pycache__/
+node_modules/
+graphify-out/
+ConfigDumpInfo.xml
+# полные конфигурации и выгрузки баз — не наши исходники
+*.cf
+*.dt
+# бэкапы, архивы, установщики
+_backup*/
+*.bak*
+*.zip
+*.rar
+*.7z
+*.iso
+*.exe
+*.msi
+*.torrent
+*.crdownload
+# секреты
+.env
+*.pfx
+*.p12
+*.ovpn
+*.rdp
+*.pem
+*.key
+*recovery-codes*
+Доступы*

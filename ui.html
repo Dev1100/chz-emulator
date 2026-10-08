@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Эмулятор ЧЗ</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--fg:#1d2330;--mut:#6b7280;--line:#e3e6eb;--acc:#2563eb;--ok:#15803d;--bad:#b91c1c;--warn:#a16207}
+@media (prefers-color-scheme:dark){:root{--bg:#14171c;--card:#1c2027;--fg:#e6e8eb;--mut:#9aa3af;--line:#2b313a;--acc:#60a5fa;--ok:#4ade80;--bad:#f87171;--warn:#facc15}}
+*{box-sizing:border-box}body{margin:0;font:14px/1.4 system-ui,Segoe UI,sans-serif;background:var(--bg);color:var(--fg)}
+header{display:flex;gap:16px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--card);flex-wrap:wrap}
+h1{font-size:17px;margin:0}nav button{background:none;border:0;color:var(--mut);padding:6px 10px;cursor:pointer;font:inherit;border-radius:6px}
+nav button.on{color:var(--fg);background:var(--bg)}main{padding:16px;max-width:1400px;margin:auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:12px;overflow:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--mut);font-weight:500}td.mono,.mono{font-family:Consolas,monospace;font-size:12px;word-break:break-all}
+.s-ok{color:var(--ok)}.s-bad{color:var(--bad)}.s-warn{color:var(--warn)}
+input,select{font:inherit;padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+button.b{font:inherit;padding:6px 12px;border:1px solid var(--acc);background:var(--acc);color:#fff;border-radius:6px;cursor:pointer}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:8px}.row label{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--mut)}
+.stats span{margin-right:14px}pre{white-space:pre-wrap;word-break:break-all;font-size:12px;margin:4px 0;max-height:300px;overflow:auto}
+details summary{cursor:pointer}.hide{display:none}
+</style></head><body>
+<header><h1>Эмулятор Честного Знака</h1>
+<nav id="nav"><button data-t="log" class="on">Журнал</button><button data-t="codes">Коды</button><button data-t="docs">Документы</button>
+<button data-t="suz">СУЗ</button><button data-t="auto">Автосценарий</button><button data-t="act">Действия</button><button data-t="set">Настройки</button></nav>
+<span class="stats" id="stats"></span></header>
+<main>
+<section id="t-log"><div class="card"><table><thead><tr><th>Время</th><th>Метод</th><th>Хост / путь</th><th>Код</th><th>мс</th></tr></thead><tbody id="log"></tbody></table></div></section>
+<section id="t-codes" class="hide"><div class="card"><div class="row"><input id="q" placeholder="поиск: код, GTIN, ИНН, статус" size="40"></div>
+<table><thead><tr><th>Код (cis)</th><th>GTIN</th><th>ТГ</th><th>Статус</th><th>Владелец</th><th>Упаковка</th><th>Родитель</th><th></th></tr></thead><tbody id="codes"></tbody></table></div></section>
+<section id="t-docs" class="hide"><div class="card"><table><thead><tr><th>Получен</th><th>Тип</th><th>Номер</th><th>Статус</th><th>Отправитель → получатель</th><th>Ошибки</th><th>ID</th></tr></thead><tbody id="docs"></tbody></table></div></section>
+<section id="t-suz" class="hide"><div class="card"><h3>Заказы</h3><table><thead><tr><th>Создан</th><th>ID</th><th>ТГ</th><th>ИНН</th><th>Статус</th><th>Выдано / всего</th></tr></thead><tbody id="orders"></tbody></table></div>
+<div class="card"><h3>Отчёты</h3><table><thead><tr><th>Создан</th><th>Вид</th><th>Статус</th><th>Ошибки</th><th>ID</th></tr></thead><tbody id="reports"></tbody></table></div></section>
+<section id="t-auto" class="hide"><div class="card"><h3>Автосценарий: полный цикл ЧЗ</h3>
+<p style="color:var(--mut);margin-top:0">Проходит через прокси и TLS эмулятора так же, как 1С: авторизация → участник → СУЗ (соединение, заказ, коды, отчёт о нанесении) → ввод в оборот → агрегация → отгрузка → приёмка → вывод из оборота → разрешительный режим. Участники 7799000001 и 7799000002, данные остаются в эмуляторе.</p>
+<div class="row"><label>Товарная группа<input id="a-pg" value="lp" size="10"></label><button class="b" id="a-run" onclick="autotest()">Запустить</button><span id="a-sum"></span></div>
+<table><thead><tr><th>#</th><th>Шаг</th><th>Итог</th><th>Детали</th><th>мс</th></tr></thead><tbody id="a-steps"></tbody></table></div></section>
+<section id="t-act" class="hide">
+<div class="card"><h3>Сгенерировать коды</h3><div class="row">
+<label>GTIN (пусто — новый)<input id="g-gtin" size="16"></label><label>Товарная группа<input id="g-pg" value="lp" size="10"></label>
+<label>Количество<input id="g-count" value="5" size="5"></label><label>Статус<select id="g-status"><option>INTRODUCED</option><option>EMITTED</option><option>APPLIED</option><option>RETIRED</option></select></label>
+<label>Владелец ИНН<input id="g-owner" size="12"></label><label><span><input type="checkbox" id="g-agg"> в короб (SSCC)</span></label>
+<button class="b" onclick="gen()">Создать</button></div><pre id="g-out" class="mono"></pre></div>
+<div class="card"><h3>Входящая отгрузка от поставщика (для приёмки в 1С)</h3><div class="row">
+<label>ИНН поставщика<input id="i-sender" value="7700000002" size="12"></label><label>ИНН получателя<input id="i-receiver" size="12"></label>
+<label>GTIN<input id="i-gtin" size="16"></label><label>ТГ<input id="i-pg" value="lp" size="8"></label><label>Кодов<input id="i-count" value="3" size="4"></label>
+<button class="b" onclick="incoming()">Отгрузить</button></div><pre id="i-out" class="mono"></pre></div>
+<div class="card"><h3>Участник оборота</h3><div class="row"><label>ИНН<input id="p-inn" size="12"></label><label>Наименование<input id="p-name" size="30"></label>
+<label>Статус<select id="p-status"><option>REGISTERED</option><option>NOT_REGISTERED</option></select></label><button class="b" onclick="participant()">Сохранить</button></div></div>
+<div class="card"><h3>Сброс</h3><button class="b" style="background:var(--bad);border-color:var(--bad)" onclick="if(confirm('Удалить все коды, документы и заказы?'))post('_emu/reset',{}).then(load)">Очистить данные</button>
+<a href="_emu/ca.crt" style="margin-left:12px">Скачать корневой сертификат</a></div></section>
+<section id="t-set" class="hide"><div class="card"><div id="settings"></div><button class="b" onclick="saveSettings()">Сохранить</button></div></section>
+</main>
+<script>
+let S={},tab='log';const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const cls=s=>/NOT_OK|ERROR|REJECT|FAIL|CANCEL|WRITTEN/.test(s)?'s-bad':/OK|ACCEPT|INTRODUCED|SENT|READY|ACTIVE|SUCCESS/.test(s)?'s-ok':'s-warn';
+document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('on',x===b));
+document.querySelectorAll('main>section').forEach(s=>s.classList.toggle('hide',s.id!=='t-'+tab));if(tab==='set')renderSettings()});
+const post=(u,d)=>fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}).then(r=>r.json());
+async function load(){const q=$('q').value;S=await fetch('_emu/state?limit=300'+(q?'&q='+encodeURIComponent(q):'')).then(r=>r.json());
+$('stats').innerHTML=S.stats.map(s=>`<span class="${cls(s.status)}">${esc(s.status)}: ${s.n}</span>`).join('');
+$('log').innerHTML=S.log.map(e=>`<tr><td>${esc(e.t.slice(11,19))}</td><td>${esc(e.m)}</td><td><details><summary class="mono">${esc(e.host)} /${esc(e.path||'')}</summary>${e.err?`<pre class="s-bad">${esc(e.err)}</pre>`:''}${e.req?`<b>Запрос</b><pre>${esc(e.req)}</pre>`:''}<b>Ответ</b><pre>${esc(e.resp)}</pre></details></td><td class="${e.code<300?'s-ok':'s-bad'}">${e.code}</td><td>${e.ms??''}</td></tr>`).join('');
+$('codes').innerHTML=S.codes.map(c=>`<tr><td class="mono">${esc(c.cis)}</td><td class="mono">${esc(c.gtin)}</td><td>${esc(c.pg)}</td><td class="${cls(c.status)}">${esc(c.status)} ${esc(c.status_ex||'')}</td><td>${esc(c.owner_inn)}</td><td>${esc(c.package_type)}</td><td class="mono">${esc(c.parent)}</td>
+<td><select onchange="post('_emu/code',{cis:'${esc(c.cis)}',status:this.value}).then(load)"><option>изменить…</option>${['EMITTED','APPLIED','INTRODUCED','RETIRED','WRITTEN_OFF','DISAGGREGATED'].map(s=>`<option>${s}</option>`).join('')}</select></td></tr>`).join('');
+$('docs').innerHTML=S.docs.map(d=>`<tr><td>${esc(d.received.slice(0,19).replace('T',' '))}</td><td>${esc(d.type)}</td><td>${esc(d.number)}</td><td class="${cls(d.status)}">${esc(d.status)}</td><td>${esc(d.sender_inn)} → ${esc(d.receiver_inn||'')}</td><td class="s-bad">${esc(JSON.parse(d.errors||'[]').join('; '))}</td><td class="mono"><a href="_emu/doc/${esc(d.id)}" target="_blank">${esc(d.id)}</a></td></tr>`).join('');
+$('orders').innerHTML=S.orders.map(o=>`<tr><td>${esc(o.created.slice(0,19).replace('T',' '))}</td><td class="mono">${esc(o.id)}</td><td>${esc(o.pg)}</td><td>${esc(o.inn)}</td><td class="${cls(o.status)}">${esc(o.status)}</td><td>${o.issued??0} / ${o.total??0}</td></tr>`).join('');
+$('reports').innerHTML=S.reports.map(r=>`<tr><td>${esc(r.created.slice(0,19).replace('T',' '))}</td><td>${esc(r.kind)}</td><td class="${cls(r.status)}">${esc(r.status)}</td><td class="s-bad">${esc(JSON.parse(r.errors||'[]').join('; '))}</td><td class="mono">${esc(r.id)}</td></tr>`).join('')}
+const HINT={default_inn:'ИНН по умолчанию (если не удалось взять из подписи)',strict:'Проверять статусы и владельца кодов',unknown_codes:"Неизвестные коды: '404' как ЧЗ или 'auto' — считать в обороте",doc_delay_sec:'Секунд «в обработке» у документа',order_delay_sec:'Секунд подготовки заказа СУЗ',reject_documents:'Отклонять все документы',reject_reason:'Текст ошибки при отклонении',auth_fail:'Отказывать в авторизации',token_ttl_hours:'Срок жизни токена, ч'};
+function renderSettings(){$('settings').innerHTML=Object.entries(S.settings).map(([k,v])=>`<div class="row"><label style="min-width:420px">${esc(HINT[k]||k)}${typeof v==='boolean'?`<input type="checkbox" data-k="${k}" ${v?'checked':''}>`:`<input data-k="${k}" value="${esc(v)}">`}</label></div>`).join('')}
+function saveSettings(){const d={};document.querySelectorAll('#settings [data-k]').forEach(i=>{const k=i.dataset.k,o=S.settings[k];d[k]=i.type==='checkbox'?i.checked:typeof o==='number'?Number(i.value):i.value});post('_emu/settings',d).then(load)}
+function gen(){post('_emu/codes',{gtin:$('g-gtin').value,pg:$('g-pg').value,count:+$('g-count').value,status:$('g-status').value,owner_inn:$('g-owner').value,aggregate:$('g-agg').checked}).then(r=>{$('g-out').textContent=(r.box?'Короб: '+r.box+'\n':'')+r.codes.map(c=>c.replaceAll('\x1d','<GS>')).join('\n');load()})}
+function incoming(){post('_emu/incoming',{sender_inn:$('i-sender').value,receiver_inn:$('i-receiver').value,gtin:$('i-gtin').value,pg:$('i-pg').value,count:+$('i-count').value}).then(r=>{$('i-out').textContent='Документ '+r.number+' ('+r.id+')\n'+r.codes.map(c=>c.replaceAll('\x1d','<GS>')).join('\n');load()})}
+async function autotest(){$('a-run').disabled=true;$('a-sum').textContent='выполняется…';$('a-steps').innerHTML='';
+try{const r=await post('_emu/autotest',{pg:$('a-pg').value});$('a-sum').innerHTML=`<b class="${r.ok?'s-ok':'s-bad'}">${r.ok?'Все шаги прошли':'Есть ошибки'}</b> — ${r.steps.filter(s=>s.ok).length} из ${r.всего}, ${r.мс} мс`;
+$('a-steps').innerHTML=r.steps.map((s,i)=>`<tr><td>${i+1}</td><td>${esc(s.шаг)}</td><td class="${s.ok?'s-ok':'s-bad'}">${s.ok?'OK':'Ошибка'}</td><td class="mono">${esc(s.детали)}</td><td>${s.мс}</td></tr>`).join('');load()}
+catch(e){$('a-sum').innerHTML='<b class="s-bad">'+esc(e)+'</b>'}finally{$('a-run').disabled=false}}
+function participant(){post('_emu/participant',{inn:$('p-inn').value,name:$('p-name').value,status:$('p-status').value}).then(load)}
+$('q').oninput=()=>load();load();setInterval(()=>{if(tab!=='set'&&tab!=='act'&&tab!=='auto')load()},3000);
+</script></body></html>
