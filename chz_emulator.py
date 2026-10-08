@@ -14,7 +14,8 @@ import xml.etree.ElementTree as ET
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit, parse_qs
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))   # ресурсы: ui.html, расширение
+APP_DIR = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else HERE   # данные — рядом с exe
 NK_PROD = 'xn--80aqu.xn----7sbabas4ajkhfocclk9d3cvfsa.xn--p1ai'   # апи.национальный-каталог.рф
 EMULATED = re.compile(r'(^|\.)(crpt\.ru|crptech\.ru|crpt\.tech|xn--80aqu\.xn----7sbabas4ajkhfocclk9d3cvfsa\.xn--p1ai'
                       r'|апи\.национальный-каталог\.рф)$', re.I)
@@ -1818,12 +1819,24 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--port', type=int, default=3128)
     ap.add_argument('--bind', default='127.0.0.1', help='0.0.0.0 — пустить 1С с других машин')
-    ap.add_argument('--data', default=os.path.join(HERE, 'data'))
+    ap.add_argument('--data', default=os.path.join(APP_DIR, 'data'))
     ap.add_argument('-v', '--verbose', action='store_true')
+    ap.add_argument('--no-browser', action='store_true', help='не открывать веб-интерфейс')
     a = ap.parse_args()
-    srv = make_server(a.port, a.data, a.verbose, a.bind)
-    print(f'Эмулятор ЧЗ: прокси и веб-интерфейс http://{a.bind}:{a.port}/  (данные: {a.data})')
+    try:
+        srv = make_server(a.port, a.data, a.verbose, a.bind)
+    except OSError as e:
+        print(f'Порт {a.port} занят — эмулятор уже запущен? ({e})')
+        if getattr(sys, 'frozen', False):
+            input('Enter — закрыть')
+        return
+    url = f'http://127.0.0.1:{a.port}/'
+    print(f'Эмулятор ЧЗ: прокси для 1С {a.bind}:{a.port}, веб-интерфейс {url}  (данные: {a.data})')
     print(f'Корневой сертификат: {os.path.join(srv.certdir, "ca.crt")}')
+    print('Окно не закрывайте, пока работаете с 1С. Остановка — Ctrl+C.')
+    if not a.no_browser:
+        import webbrowser
+        threading.Timer(1.0, webbrowser.open, [url]).start()
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

@@ -45,3 +45,5 @@ _backup*/
 Доступы*
 docs/shots/raw/
 docs/shots/marks.json
+build/
+release/

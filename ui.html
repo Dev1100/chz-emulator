@@ -5,9 +5,21 @@
 :root{--bg:#f6f7f9;--card:#fff;--fg:#1d2330;--mut:#6b7280;--line:#e3e6eb;--acc:#2563eb;--ok:#15803d;--bad:#b91c1c;--warn:#a16207}
 @media (prefers-color-scheme:dark){:root{--bg:#14171c;--card:#1c2027;--fg:#e6e8eb;--mut:#9aa3af;--line:#2b313a;--acc:#60a5fa;--ok:#4ade80;--bad:#f87171;--warn:#facc15}}
 *{box-sizing:border-box}body{margin:0;font:14px/1.4 system-ui,Segoe UI,sans-serif;background:var(--bg);color:var(--fg)}
-header{display:flex;gap:16px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--card);flex-wrap:wrap}
-h1{font-size:17px;margin:0}nav button{background:none;border:0;color:var(--mut);padding:6px 10px;cursor:pointer;font:inherit;border-radius:6px}
-nav button.on{color:var(--fg);background:var(--bg)}main{padding:16px;max-width:1400px;margin:auto}
+body{display:flex;min-height:100vh}
+header{width:210px;flex:none;background:#1e2433;color:#c8cedb;position:sticky;top:0;height:100vh;display:flex;flex-direction:column}
+h1{font-size:15px;margin:0;padding:18px 16px 14px;color:#fff;line-height:1.25}h1 small{display:block;font-weight:400;font-size:12px;color:#97a0b3;margin-top:3px}
+nav{display:flex;flex-direction:column;flex:1}nav button{background:none;border:0;border-left:3px solid transparent;color:#c8cedb;padding:9px 16px;cursor:pointer;font:inherit;text-align:left}
+nav button:hover{background:#ffffff0d}nav button.on{color:#fff;background:#ffffff16;border-left-color:#5b8cff}
+.stats{padding:12px 16px;font-size:12px;border-top:1px solid #ffffff18;display:flex;flex-direction:column;gap:3px}.stats span{margin:0}
+main{flex:1;min-width:0;padding:20px 24px}.ttl{font-size:20px;font-weight:600;margin:0 0 4px}.sub{color:var(--mut);margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:12px}.stat{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px}.stat b{display:block;font-size:24px}.stat span{color:var(--mut);font-size:12px}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;background:#a1620722;color:var(--warn);white-space:nowrap}.pill.ok{background:#15803d1f;color:var(--ok)}.pill.bad{background:#b91c1c1f;color:var(--bad)}
+tbody tr.click{cursor:pointer}tbody tr.click:hover{background:#2563eb10}
+.drawer{position:fixed;top:0;right:0;height:100vh;width:min(620px,100vw);background:var(--card);border-left:1px solid var(--line);box-shadow:-8px 0 24px #0003;transform:translateX(105%);transition:transform .15s;z-index:9;display:flex;flex-direction:column}
+.drawer.open{transform:none}.drawer .dh{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);font-weight:600}.drawer .db{padding:12px 16px;overflow:auto}
+dl{display:grid;grid-template-columns:150px 1fr;gap:4px 10px;margin:0 0 12px}dt{color:var(--mut)}dd{margin:0;word-break:break-all}
+.steps li{margin-bottom:10px}code{background:var(--bg);padding:1px 5px;border-radius:4px;font-size:12px}
+@media (max-width:760px){body{flex-direction:column}header{width:auto;height:auto;position:static}nav{flex-direction:row;overflow:auto}.stats{display:none}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:12px;overflow:auto}
 table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
 th{color:var(--mut);font-weight:500}td.mono,.mono{font-family:Consolas,monospace;font-size:12px;word-break:break-all}
@@ -18,12 +30,22 @@ button.b{font:inherit;padding:6px 12px;border:1px solid var(--acc);background:va
 .stats span{margin-right:14px}pre{white-space:pre-wrap;word-break:break-all;font-size:12px;margin:4px 0;max-height:300px;overflow:auto}
 details summary{cursor:pointer}.hide{display:none}
 </style></head><body>
-<header><h1>Эмулятор Честного Знака</h1>
-<nav id="nav"><button data-t="log" class="on">Журнал</button><button data-t="codes">Коды</button><button data-t="docs">Документы</button>
-<button data-t="nk">Нац. каталог</button><button data-t="suz">СУЗ</button><button data-t="auto">Автосценарий</button><button data-t="act">Действия</button><button data-t="set">Настройки</button></nav>
+<header><h1>Эмулятор Честного Знака<small>ГИС МТ · СУЗ · Нац. каталог</small></h1>
+<nav id="nav"><button data-t="home" class="on">Обзор</button><button data-t="log">Журнал</button><button data-t="codes">Коды</button><button data-t="docs">Документы</button>
+<button data-t="nk">Нац. каталог</button><button data-t="suz">СУЗ</button><button data-t="auto">Автосценарий</button><button data-t="act">Действия</button><button data-t="set">Настройки</button><button data-t="conn">Подключение 1С</button></nav>
 <span class="stats" id="stats"></span></header>
 <main>
-<section id="t-log"><div class="card"><table><thead><tr><th>Время</th><th>Метод</th><th>Хост / путь</th><th>Код</th><th>мс</th></tr></thead><tbody id="log"></tbody></table></div></section>
+<section id="t-home"><p class="ttl">Обзор</p><p class="sub">Состояние эмулятора и последние обращения 1С</p><div class="grid" id="h-stats"></div>
+<div class="card"><h3 style="margin-top:0">Последние запросы</h3><table><tbody id="h-log"></tbody></table></div></section>
+<section id="t-conn" class="hide"><p class="ttl">Подключение 1С</p><p class="sub">Один раз на базу. Подробно — в ИНСТРУКЦИЯ.md рядом с эмулятором.</p><div class="card"><ol class="steps">
+<li><b>Доверить сертификат эмулятора</b> на компьютере, где работает сервер 1С: <a href="_emu/ca.crt">скачать ca.crt</a>, затем <code>certutil -user -addstore Root ca.crt</code> (для службы сервера 1С — без <code>-user</code>, от администратора).</li>
+<li><b>Тестовый контур:</b> НСИ и администрирование → Интеграция с ИС МП (обувь, одежда, табак...) → вкладка «Электронные подписи и авторизация» → флажок «Тестовый контур».</li>
+<li><b>Прокси</b> <code id="c-proxy">127.0.0.1:3128</code>: файловая база — Персональные настройки → «Настройка доступа к Интернету» (у каждого пользователя); клиент-серверная — Общие настройки → «Параметры прокси-сервера». Задаётся в тонком клиенте, не в веб-клиенте.</li>
+<li><b>СУЗ:</b> адрес <code>suz.sandbox.crptech.ru</code>, порт 443, защищённое соединение, omsId — любой.</li>
+<li><b>Нет ЭП?</b> <a href="_emu/extension.cfe" download="ЧЗ_БезПодписи.cfe">Скачать расширение «ЧЗ_БезПодписи»</a> → Администрирование → Печатные формы, отчёты и обработки → Расширения → «Добавить из файла», снять «Безопасный режим», перезапустить 1С. Работает только при включённом тестовом контуре.</li>
+<li><b>Проверить:</b> любое действие с ЧЗ в 1С — запросы появятся в «Журнале».</li></ol></div></section>
+<div class="drawer" id="drawer"><div class="dh"><span id="dr-t"></span><button onclick="$('drawer').classList.remove('open')">✕</button></div><div class="db" id="dr-b"></div></div>
+<section id="t-log" class="hide"><div class="row"><input id="lq" placeholder="фильтр журнала: путь, хост, текст" size="40"><label style="flex-direction:row;align-items:center;gap:6px"><input type="checkbox" id="lerr">только ошибки</label></div><div class="card"><table><thead><tr><th>Время</th><th>Метод</th><th>Хост / путь</th><th>Код</th><th>мс</th></tr></thead><tbody id="log"></tbody></table></div></section>
 <section id="t-codes" class="hide"><div class="card"><div class="row"><input id="q" placeholder="поиск: код, GTIN, ИНН, статус" size="40"></div>
 <table><thead><tr><th>Код (cis)</th><th>GTIN</th><th>ТГ</th><th>Статус</th><th>Владелец</th><th>Упаковка</th><th>Родитель</th><th></th></tr></thead><tbody id="codes"></tbody></table></div></section>
 <section id="t-docs" class="hide"><div class="card"><table><thead><tr><th>Получен</th><th>Тип</th><th>Номер</th><th>Статус</th><th>Отправитель → получатель</th><th>Ошибки</th><th>ID</th></tr></thead><tbody id="docs"></tbody></table></div></section>
@@ -61,19 +83,20 @@ details summary{cursor:pointer}.hide{display:none}
 <section id="t-set" class="hide"><div class="card"><div id="settings"></div><button class="b" onclick="saveSettings()">Сохранить</button></div></section>
 </main>
 <script>
-let S={},tab='log';const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let S={},tab='home';const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const cls=s=>/NOT_OK|ERROR|REJECT|FAIL|CANCEL|WRITTEN/.test(s)?'s-bad':/OK|ACCEPT|INTRODUCED|SENT|READY|ACTIVE|SUCCESS/.test(s)?'s-ok':'s-warn';
 document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('on',x===b));
 document.querySelectorAll('main>section').forEach(s=>s.classList.toggle('hide',s.id!=='t-'+tab));if(tab==='set')renderSettings()});
 const post=(u,d)=>fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)}).then(r=>r.json());
 async function load(){const q=$('q').value;S=await fetch('_emu/state?limit=300'+(q?'&q='+encodeURIComponent(q):'')).then(r=>r.json());
 $('stats').innerHTML=S.stats.map(s=>`<span class="${cls(s.status)}">${esc(s.status)}: ${s.n}</span>`).join('');
-$('log').innerHTML=S.log.map(e=>`<tr><td>${esc(e.t.slice(11,19))}</td><td>${esc(e.m)}</td><td><details><summary class="mono">${esc(e.host)} /${esc(e.path||'')}</summary>${e.err?`<pre class="s-bad">${esc(e.err)}</pre>`:''}${e.req?`<b>Запрос</b><pre>${esc(e.req)}</pre>`:''}<b>Ответ</b><pre>${esc(e.resp)}</pre></details></td><td class="${e.code<300?'s-ok':'s-bad'}">${e.code}</td><td>${e.ms??''}</td></tr>`).join('');
-$('codes').innerHTML=S.codes.map(c=>`<tr><td class="mono">${esc(c.cis)}</td><td class="mono">${esc(c.gtin)}</td><td>${esc(c.pg)}</td><td class="${cls(c.status)}">${esc(c.status)} ${esc(c.status_ex||'')}</td><td>${esc(c.owner_inn)}</td><td>${esc(c.package_type)}</td><td class="mono">${esc(c.parent)}</td>
-<td><select onchange="post('_emu/code',{cis:'${esc(c.cis)}',status:this.value}).then(load)"><option>изменить…</option>${['EMITTED','APPLIED','INTRODUCED','RETIRED','WRITTEN_OFF','DISAGGREGATED'].map(s=>`<option>${s}</option>`).join('')}</select></td></tr>`).join('');
+const lq=($('lq').value||'').toLowerCase(),le=$('lerr').checked;const LOG=S.log.filter(e=>(!le||e.code>=300)&&(!lq||JSON.stringify(e).toLowerCase().includes(lq)));
+$('log').innerHTML=LOG.map(e=>`<tr><td>${esc(e.t.slice(11,19))}</td><td>${esc(e.m)}</td><td><details><summary class="mono">${esc(e.host)} /${esc(e.path||'')}</summary>${e.err?`<pre class="s-bad">${esc(e.err)}</pre>`:''}${e.req?`<b>Запрос</b><pre>${esc(e.req)}</pre>`:''}<b>Ответ</b><pre>${esc(e.resp)}</pre></details></td><td class="${e.code<300?'s-ok':'s-bad'}">${e.code}</td><td>${e.ms??''}</td></tr>`).join('');
+$('codes').innerHTML=S.codes.map(c=>`<tr class="click" onclick='codeCard(${JSON.stringify(c.cis)})'><td class="mono">${esc(c.cis)}</td><td class="mono">${esc(c.gtin)}</td><td>${esc(c.pg)}</td><td class="${cls(c.status)}">${esc(c.status)} ${esc(c.status_ex||'')}</td><td>${esc(c.owner_inn)}</td><td>${esc(c.package_type)}</td><td class="mono">${esc(c.parent)}</td>
+<td onclick="event.stopPropagation()"><select onchange="post('_emu/code',{cis:'${esc(c.cis)}',status:this.value}).then(load)"><option>изменить…</option>${['EMITTED','APPLIED','INTRODUCED','RETIRED','WRITTEN_OFF','DISAGGREGATED'].map(s=>`<option>${s}</option>`).join('')}</select></td></tr>`).join('');
 $('docs').innerHTML=S.docs.map(d=>`<tr><td>${esc(d.received.slice(0,19).replace('T',' '))}</td><td>${esc(d.type)}</td><td>${esc(d.number)}</td><td class="${cls(d.status)}">${esc(d.status)}</td><td>${esc(d.sender_inn)} → ${esc(d.receiver_inn||'')}</td><td class="s-bad">${esc(JSON.parse(d.errors||'[]').join('; '))}</td><td class="mono"><a href="_emu/doc/${esc(d.id)}" target="_blank">${esc(d.id)}</a></td></tr>`).join('');
 $('orders').innerHTML=S.orders.map(o=>`<tr><td>${esc(o.created.slice(0,19).replace('T',' '))}</td><td class="mono">${esc(o.id)}</td><td>${esc(o.pg)}</td><td>${esc(o.inn)}</td><td class="${cls(o.status)}">${esc(o.status)}</td><td>${o.issued??0} / ${o.total??0}</td></tr>`).join('');
-$('reports').innerHTML=S.reports.map(r=>`<tr><td>${esc(r.created.slice(0,19).replace('T',' '))}</td><td>${esc(r.kind)}</td><td class="${cls(r.status)}">${esc(r.status)}</td><td class="s-bad">${esc(JSON.parse(r.errors||'[]').join('; '))}</td><td class="mono">${esc(r.id)}</td></tr>`).join('')}
+$('reports').innerHTML=S.reports.map(r=>`<tr><td>${esc(r.created.slice(0,19).replace('T',' '))}</td><td>${esc(r.kind)}</td><td class="${cls(r.status)}">${esc(r.status)}</td><td class="s-bad">${esc(JSON.parse(r.errors||'[]').join('; '))}</td><td class="mono">${esc(r.id)}</td></tr>`).join('');home()}
 const HINT={default_inn:'ИНН по умолчанию (если не удалось взять из подписи)',strict:'Проверять статусы и владельца кодов',unknown_codes:"Неизвестные коды: '404' как ЧЗ или 'auto' — считать в обороте",doc_delay_sec:'Секунд «в обработке» у документа',order_delay_sec:'Секунд подготовки заказа СУЗ',reject_documents:'Отклонять все документы',reject_reason:'Текст ошибки при отклонении',auth_fail:'Отказывать в авторизации',token_ttl_hours:'Срок жизни токена, ч',nk_placeholder:'GTIN не из Нац. каталога: выдавать заглушку (иначе «не найден», как ЧЗ)',suz_require_nk:'СУЗ отклоняет заказ на GTIN без опубликованной карточки НК'};
 function renderSettings(){$('settings').innerHTML=Object.entries(S.settings).map(([k,v])=>`<div class="row"><label style="min-width:420px">${esc(HINT[k]||k)}${typeof v==='boolean'?`<input type="checkbox" data-k="${k}" ${v?'checked':''}>`:`<input data-k="${k}" value="${esc(v)}">`}</label></div>`).join('')}
 function saveSettings(){const d={};document.querySelectorAll('#settings [data-k]').forEach(i=>{const k=i.dataset.k,o=S.settings[k];d[k]=i.type==='checkbox'?i.checked:typeof o==='number'?Number(i.value):i.value});post('_emu/settings',d).then(load)}
@@ -92,5 +115,16 @@ function nkSave(){post('_emu/nk',{gtin:$('n-gtin').value.trim(),name:$('n-name')
 function nkImport(){post('_emu/nk/import',{csv:$('n-csv').value}).then(r=>{$('n-imp').textContent=`Загружено: ${r.imported}`+(r.skipped.length?`, пропущено строк: ${r.skipped.length}`:'');nkLoad()})}
 $('nq').oninput=()=>nkLoad();document.querySelector('[data-t="nk"]').addEventListener('click',nkLoad);
 function participant(){post('_emu/participant',{inn:$('p-inn').value,name:$('p-name').value,status:$('p-status').value}).then(load)}
+const RU={EMITTED:'Эмитирован',APPLIED:'Нанесён',INTRODUCED:'В обороте',RETIRED:'Выбыл',WRITTEN_OFF:'Списан',DISAGGREGATED:'Расформирован',CHECKED_OK:'Обработан',CHECKED_NOT_OK:'Ошибка',IN_PROGRESS:'В обработке',WAIT_ACCEPTANCE:'Ожидает приёмки',ACCEPTED:'Принят',CANCELLED:'Отменён'};
+const pill=s=>`<span class="pill ${/NOT_OK|ERR|REJECT|FAIL|CANCEL|WRITTEN/.test(s)?'bad':/OK|ACCEPT|INTRODUCED|SENT|READY|ACTIVE/.test(s)?'ok':''}" title="${esc(s)}">${esc(RU[s]||s)}</span>`;
+function home(){const by={};S.stats.forEach(x=>by[x.status]=x.n);const err=S.docs.filter(d=>d.status==='CHECKED_NOT_OK').length;
+$('h-stats').innerHTML=[['INTRODUCED','Коды в обороте'],['APPLIED','Коды нанесены'],['EMITTED','Коды эмитированы'],['RETIRED','Коды выбыли']].map(([k,t])=>`<div class="stat"><b>${by[k]||0}</b><span>${t}</span></div>`).join('')+
+`<div class="stat"><b>${S.docs.length}</b><span>Документов, с ошибкой: ${err}</span></div><div class="stat"><b>${S.orders.length}</b><span>Заказов СУЗ</span></div><div class="stat"><b>${(S.nk||[]).length}</b><span>Карточек НК</span></div><div class="stat"><b>${S.log.length}</b><span>Запросов в журнале</span></div>`;
+$('h-log').innerHTML=S.log.slice(0,12).map(e=>`<tr><td>${esc(e.t.slice(11,19))}</td><td>${esc(e.m)}</td><td class="mono">${esc(e.host)} /${esc(e.path||'')}</td><td class="${e.code<300?'s-ok':'s-bad'}">${e.code}</td></tr>`).join('')||'<tr><td style="color:var(--mut)">Запросов от 1С пока не было — см. «Подключение 1С»</td></tr>'}
+async function codeCard(cis){const r=await fetch('_emu/code/'+encodeURIComponent(cis)).then(x=>x.json());if(r.error_message)return alert(r.error_message);const c=r.code,i=r.cisInfo;
+$('dr-t').textContent='Код '+c.cis;$('dr-b').innerHTML=`<dl><dt>Статус</dt><dd>${pill(c.status)} ${esc(c.status_ex||'')}</dd><dt>GTIN</dt><dd>${esc(c.gtin)}</dd><dt>Товар (НК)</dt><dd>${esc(r.nk?r.nk.name:'нет карточки в Нац. каталоге')}</dd><dt>Владелец</dt><dd>${esc(c.owner_inn)}</dd><dt>Упаковка</dt><dd>${esc(c.package_type)}${i.child?' · вложено '+i.child.length:''}</dd><dt>В упаковке</dt><dd class="mono">${esc(c.parent||'—')}</dd><dt>Полный код</dt><dd class="mono">${esc((c.full||'').replaceAll('','<GS>'))}</dd><dt>Эмиссия / нанесение / ввод</dt><dd>${esc([c.emission_date,c.applied_date,c.introduced_date].map(x=>x?x.slice(0,10):'—').join(' / '))}</dd></dl>
+<h4>Документы по коду</h4><table>${r.docs.map(d=>`<tr><td>${esc(d.received.slice(0,19).replace('T',' '))}</td><td>${esc(d.type)}</td><td>${pill(d.status)}</td></tr>`).join('')||'<tr><td style="color:var(--mut)">нет</td></tr>'}</table>
+<h4>Ответ ЧЗ (cises/info)</h4><pre>${esc(JSON.stringify(i,null,1))}</pre>`;$('drawer').classList.add('open')}
+$('lq').oninput=()=>load();$('lerr').onchange=()=>load();$('c-proxy').textContent=location.host;
 $('q').oninput=()=>load();load();setInterval(()=>{if(tab!=='set'&&tab!=='act'&&tab!=='auto'&&tab!=='nk')load()},3000);
 </script></body></html>
