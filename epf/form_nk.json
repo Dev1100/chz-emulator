@@ -1,0 +1,63 @@
+{
+  "title": "Выгрузка GTIN номенклатуры в Нац. каталог эмулятора ЧЗ",
+  "properties": { "autoTitle": false },
+  "events": { "OnCreateAtServer": "ПриСозданииНаСервере" },
+  "elements": [
+    { "label": "Пояснение", "title": "Собирает GTIN из штрихкодов номенклатуры (с видом продукции ИС, ТН ВЭД, наименованием) и создаёт по ним карточки в Национальном каталоге эмулятора. Неверные GTIN (контрольная цифра, внутренние штрихкоды на «2») показываются с причиной и не выгружаются." },
+    { "group": "horizontal", "name": "ГруппаОтбор", "children": [
+      { "input": "Организация", "path": "Организация", "title": "Организация (ИНН производителя)", "horizontalStretch": true },
+      { "input": "ВидПродукции", "path": "ВидПродукции", "title": "Вид продукции ИС", "clearButton": true, "horizontalStretch": true }
+    ]},
+    { "group": "horizontal", "name": "ГруппаПараметры", "children": [
+      { "check": "ТолькоМаркируемые", "path": "ТолькоМаркируемые", "title": "Только номенклатура с видом продукции ИС" },
+      { "input": "СтатусКарточки", "path": "СтатусКарточки", "title": "Статус карточек", "dropListButton": true, "width": 18, "autoMaxWidth": false },
+      { "input": "АдресЭмулятора", "path": "АдресЭмулятора", "title": "Эмулятор", "width": 14, "autoMaxWidth": false },
+      { "input": "ПортЭмулятора", "path": "ПортЭмулятора", "title": "Порт", "width": 6, "autoMaxWidth": false }
+    ]},
+    { "group": "horizontal", "name": "ГруппаКнопки", "children": [
+      { "button": "Заполнить", "command": "Заполнить", "title": "Заполнить" },
+      { "button": "Выгрузить", "command": "Выгрузить", "defaultButton": true, "title": "Выгрузить в Нац. каталог" },
+      { "button": "ОтметитьВсе", "command": "ОтметитьВсе", "title": "Отметить все без ошибок" },
+      { "button": "СнятьВсе", "command": "СнятьВсе", "title": "Снять отметки" }
+    ]},
+    { "table": "Товары", "path": "Товары", "height": 14, "commandBarLocation": "None", "columns": [
+      { "check": "ТоварыВыгрузить", "path": "Товары.Выгрузить", "title": " " },
+      { "input": "ТоварыНоменклатура", "path": "Товары.Номенклатура", "title": "Номенклатура", "readOnly": true },
+      { "input": "ТоварыШтрихкод", "path": "Товары.Штрихкод", "title": "Штрихкод", "readOnly": true },
+      { "input": "ТоварыGTIN", "path": "Товары.GTIN", "title": "GTIN", "readOnly": true },
+      { "input": "ТоварыВидПродукции", "path": "Товары.ВидПродукции", "title": "Вид продукции", "readOnly": true },
+      { "input": "ТоварыТоварнаяГруппа", "path": "Товары.ТоварнаяГруппа", "title": "ТГ", "readOnly": true },
+      { "input": "ТоварыТНВЭД", "path": "Товары.ТНВЭД", "title": "ТН ВЭД" },
+      { "input": "ТоварыНаименование", "path": "Товары.Наименование", "title": "Наименование в НК" },
+      { "input": "ТоварыПроблема", "path": "Товары.Проблема", "title": "Проблема", "readOnly": true }
+    ]},
+    { "input": "Протокол", "path": "Протокол", "title": "Результат", "titleLocation": "top", "multiLine": true, "height": 4, "readOnly": true, "horizontalStretch": true }
+  ],
+  "attributes": [
+    { "name": "Объект", "type": "ExternalDataProcessorObject.ЭЧЗ_ВыгрузкаВНК", "main": true },
+    { "name": "Организация", "type": "CatalogRef.Организации" },
+    { "name": "ВидПродукции", "type": "CatalogRef.ВидыПродукцииИС" },
+    { "name": "ТолькоМаркируемые", "type": "boolean" },
+    { "name": "СтатусКарточки", "type": "string(30)" },
+    { "name": "АдресЭмулятора", "type": "string(100)" },
+    { "name": "ПортЭмулятора", "type": "decimal(5,0,nonneg)" },
+    { "name": "Протокол", "type": "string" },
+    { "name": "Товары", "type": "ValueTable", "columns": [
+      { "name": "Выгрузить", "type": "boolean" },
+      { "name": "Номенклатура", "type": "CatalogRef.Номенклатура" },
+      { "name": "Штрихкод", "type": "string(200)" },
+      { "name": "GTIN", "type": "string(14)" },
+      { "name": "ВидПродукции", "type": "CatalogRef.ВидыПродукцииИС" },
+      { "name": "ТоварнаяГруппа", "type": "string(50)" },
+      { "name": "ТНВЭД", "type": "string(10)" },
+      { "name": "Наименование", "type": "string(500)" },
+      { "name": "Проблема", "type": "string(200)" }
+    ]}
+  ],
+  "commands": [
+    { "name": "Заполнить", "action": "ЗаполнитьОбработка" },
+    { "name": "Выгрузить", "action": "ВыгрузитьОбработка" },
+    { "name": "ОтметитьВсе", "action": "ОтметитьВсеОбработка" },
+    { "name": "СнятьВсе", "action": "СнятьВсеОбработка" }
+  ]
+}

@@ -1,0 +1,398 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<Form xmlns="http://v8.1c.ru/8.3/xcf/logform" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:cfg="http://v8.1c.ru/8.1/data/enterprise/current-config" xmlns:dcscor="http://v8.1c.ru/8.1/data-composition-system/core" xmlns:dcssch="http://v8.1c.ru/8.1/data-composition-system/schema" xmlns:dcsset="http://v8.1c.ru/8.1/data-composition-system/settings" xmlns:ent="http://v8.1c.ru/8.1/data/enterprise" xmlns:lf="http://v8.1c.ru/8.2/managed-application/logform" xmlns:style="http://v8.1c.ru/8.1/data/ui/style" xmlns:sys="http://v8.1c.ru/8.1/data/ui/fonts/system" xmlns:v8="http://v8.1c.ru/8.1/data/core" xmlns:v8ui="http://v8.1c.ru/8.1/data/ui" xmlns:web="http://v8.1c.ru/8.1/data/ui/colors/web" xmlns:win="http://v8.1c.ru/8.1/data/ui/colors/windows" xmlns:xr="http://v8.1c.ru/8.3/xcf/readable" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="2.17">
+	<Title>
+		<v8:item>
+			<v8:lang>ru</v8:lang>
+			<v8:content>Настройка подключения к эмулятору ЧЗ</v8:content>
+		</v8:item>
+	</Title>
+	<AutoTitle>false</AutoTitle>
+	<AutoCommandBar name="ФормаКоманднаяПанель" id="-1">
+		<HorizontalAlign>Right</HorizontalAlign>
+		<Autofill>false</Autofill>
+	</AutoCommandBar>
+	<Events>
+		<Event name="OnCreateAtServer">ПриСозданииНаСервере</Event>
+	</Events>
+	<ChildItems>
+		<LabelDecoration name="Пояснение" id="1">
+			<Title formatted="false">
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Настраивает базу на работу с эмулятором Честного Знака: тестовый контур ИС МП, прокси-сервер, подключение к СУЗ для выбранной организации; заполняет тестовыми данными (товары с GTIN и видом продукции, контрагенты, коды в эмуляторе). Для рабочих баз не применять.</v8:content>
+				</v8:item>
+			</Title>
+			<ContextMenu name="ПояснениеКонтекстноеМеню" id="2"/>
+			<ExtendedTooltip name="ПояснениеРасширеннаяПодсказка" id="3"/>
+		</LabelDecoration>
+		<UsualGroup name="ГруппаОрганизация" id="4">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Организация</v8:content>
+				</v8:item>
+			</Title>
+			<Group>Vertical</Group>
+			<ExtendedTooltip name="ГруппаОрганизацияРасширеннаяПодсказка" id="5"/>
+			<ChildItems>
+				<InputField name="Организация" id="6">
+					<DataPath>Организация</DataPath>
+					<AutoMarkIncomplete>true</AutoMarkIncomplete>
+					<HorizontalStretch>true</HorizontalStretch>
+					<ContextMenu name="ОрганизацияКонтекстноеМеню" id="7"/>
+					<ExtendedTooltip name="ОрганизацияРасширеннаяПодсказка" id="8"/>
+					<Events>
+						<Event name="OnChange">ОрганизацияПриИзменении</Event>
+					</Events>
+				</InputField>
+				<InputField name="Подразделение" id="9">
+					<DataPath>Подразделение</DataPath>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Подразделение (производственный объект СУЗ)</v8:content>
+						</v8:item>
+					</Title>
+					<HorizontalStretch>true</HorizontalStretch>
+					<ContextMenu name="ПодразделениеКонтекстноеМеню" id="10"/>
+					<ExtendedTooltip name="ПодразделениеРасширеннаяПодсказка" id="11"/>
+				</InputField>
+				<LabelField name="ИНН" id="12">
+					<DataPath>ИНН</DataPath>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>ИНН</v8:content>
+						</v8:item>
+					</Title>
+					<ContextMenu name="ИННКонтекстноеМеню" id="13"/>
+					<ExtendedTooltip name="ИННРасширеннаяПодсказка" id="14"/>
+				</LabelField>
+			</ChildItems>
+		</UsualGroup>
+		<UsualGroup name="ГруппаЭмулятор" id="15">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Эмулятор и прокси</v8:content>
+				</v8:item>
+			</Title>
+			<Group>Vertical</Group>
+			<ExtendedTooltip name="ГруппаЭмуляторРасширеннаяПодсказка" id="16"/>
+			<ChildItems>
+				<UsualGroup name="ГруппаАдрес" id="17">
+					<Group>Horizontal</Group>
+					<ExtendedTooltip name="ГруппаАдресРасширеннаяПодсказка" id="18"/>
+					<ChildItems>
+						<InputField name="АдресЭмулятора" id="19">
+							<DataPath>АдресЭмулятора</DataPath>
+							<Title>
+								<v8:item>
+									<v8:lang>ru</v8:lang>
+									<v8:content>Адрес эмулятора</v8:content>
+								</v8:item>
+							</Title>
+							<AutoMaxWidth>false</AutoMaxWidth>
+							<Width>20</Width>
+							<ContextMenu name="АдресЭмулятораКонтекстноеМеню" id="20"/>
+							<ExtendedTooltip name="АдресЭмулятораРасширеннаяПодсказка" id="21"/>
+						</InputField>
+						<InputField name="ПортЭмулятора" id="22">
+							<DataPath>ПортЭмулятора</DataPath>
+							<Title>
+								<v8:item>
+									<v8:lang>ru</v8:lang>
+									<v8:content>Порт</v8:content>
+								</v8:item>
+							</Title>
+							<AutoMaxWidth>false</AutoMaxWidth>
+							<Width>7</Width>
+							<ContextMenu name="ПортЭмулятораКонтекстноеМеню" id="23"/>
+							<ExtendedTooltip name="ПортЭмулятораРасширеннаяПодсказка" id="24"/>
+						</InputField>
+					</ChildItems>
+				</UsualGroup>
+				<InputField name="ПроксиДля" id="25">
+					<DataPath>ПроксиДля</DataPath>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Прокси настроить</v8:content>
+						</v8:item>
+					</Title>
+					<DropListButton>true</DropListButton>
+					<HorizontalStretch>true</HorizontalStretch>
+					<ContextMenu name="ПроксиДляКонтекстноеМеню" id="26"/>
+					<ExtendedTooltip name="ПроксиДляРасширеннаяПодсказка" id="27"/>
+				</InputField>
+				<CheckBoxField name="ВключитьТестовыйКонтур" id="28">
+					<DataPath>ВключитьТестовыйКонтур</DataPath>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Включить тестовый контур ИС МП</v8:content>
+						</v8:item>
+					</Title>
+					<ContextMenu name="ВключитьТестовыйКонтурКонтекстноеМеню" id="29"/>
+					<ExtendedTooltip name="ВключитьТестовыйКонтурРасширеннаяПодсказка" id="30"/>
+				</CheckBoxField>
+				<CheckBoxField name="ВключитьУчетИСМП" id="31">
+					<DataPath>ВключитьУчетИСМП</DataPath>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Включить учёт маркируемой продукции ИС МП</v8:content>
+						</v8:item>
+					</Title>
+					<ContextMenu name="ВключитьУчетИСМПКонтекстноеМеню" id="32"/>
+					<ExtendedTooltip name="ВключитьУчетИСМПРасширеннаяПодсказка" id="33"/>
+				</CheckBoxField>
+				<CheckBoxField name="ЗарегистрироватьВЭмуляторе" id="34">
+					<DataPath>ЗарегистрироватьВЭмуляторе</DataPath>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Зарегистрировать организацию участником оборота в эмуляторе</v8:content>
+						</v8:item>
+					</Title>
+					<ContextMenu name="ЗарегистрироватьВЭмулятореКонтекстноеМеню" id="35"/>
+					<ExtendedTooltip name="ЗарегистрироватьВЭмулятореРасширеннаяПодсказка" id="36"/>
+				</CheckBoxField>
+			</ChildItems>
+		</UsualGroup>
+		<UsualGroup name="ГруппаСУЗ" id="37">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Станция управления заказами (СУЗ)</v8:content>
+				</v8:item>
+			</Title>
+			<Group>Vertical</Group>
+			<ExtendedTooltip name="ГруппаСУЗРасширеннаяПодсказка" id="38"/>
+			<ChildItems>
+				<CheckBoxField name="НастроитьСУЗ" id="39">
+					<DataPath>НастроитьСУЗ</DataPath>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Настроить подключение к СУЗ для организации</v8:content>
+						</v8:item>
+					</Title>
+					<ContextMenu name="НастроитьСУЗКонтекстноеМеню" id="40"/>
+					<ExtendedTooltip name="НастроитьСУЗРасширеннаяПодсказка" id="41"/>
+				</CheckBoxField>
+				<UsualGroup name="ГруппаСУЗПараметры" id="42">
+					<Group>Horizontal</Group>
+					<ExtendedTooltip name="ГруппаСУЗПараметрыРасширеннаяПодсказка" id="43"/>
+					<ChildItems>
+						<InputField name="АдресСУЗ" id="44">
+							<DataPath>АдресСУЗ</DataPath>
+							<Title>
+								<v8:item>
+									<v8:lang>ru</v8:lang>
+									<v8:content>Адрес СУЗ</v8:content>
+								</v8:item>
+							</Title>
+							<AutoMaxWidth>false</AutoMaxWidth>
+							<Width>26</Width>
+							<ContextMenu name="АдресСУЗКонтекстноеМеню" id="45"/>
+							<ExtendedTooltip name="АдресСУЗРасширеннаяПодсказка" id="46"/>
+						</InputField>
+						<InputField name="ИдентификаторСУЗ" id="47">
+							<DataPath>ИдентификаторСУЗ</DataPath>
+							<Title>
+								<v8:item>
+									<v8:lang>ru</v8:lang>
+									<v8:content>Идентификатор СУЗ (omsId)</v8:content>
+								</v8:item>
+							</Title>
+							<AutoMaxWidth>false</AutoMaxWidth>
+							<Width>26</Width>
+							<ContextMenu name="ИдентификаторСУЗКонтекстноеМеню" id="48"/>
+							<ExtendedTooltip name="ИдентификаторСУЗРасширеннаяПодсказка" id="49"/>
+						</InputField>
+					</ChildItems>
+				</UsualGroup>
+			</ChildItems>
+		</UsualGroup>
+		<UsualGroup name="ГруппаКнопки" id="50">
+			<Group>Horizontal</Group>
+			<ExtendedTooltip name="ГруппаКнопкиРасширеннаяПодсказка" id="51"/>
+			<ChildItems>
+				<Button name="Настроить" id="52">
+					<CommandName>Form.Command.Настроить</CommandName>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Настроить</v8:content>
+						</v8:item>
+					</Title>
+					<DefaultButton>true</DefaultButton>
+					<ExtendedTooltip name="НастроитьРасширеннаяПодсказка" id="53"/>
+				</Button>
+				<Button name="Проверить" id="54">
+					<CommandName>Form.Command.Проверить</CommandName>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Проверить связь</v8:content>
+						</v8:item>
+					</Title>
+					<ExtendedTooltip name="ПроверитьРасширеннаяПодсказка" id="55"/>
+				</Button>
+				<Button name="ЗаполнитьТестовымиДанными" id="56">
+					<CommandName>Form.Command.ЗаполнитьТестовымиДанными</CommandName>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Заполнить тестовыми данными</v8:content>
+						</v8:item>
+					</Title>
+					<ExtendedTooltip name="ЗаполнитьТестовымиДаннымиРасширеннаяПодсказка" id="57"/>
+				</Button>
+				<Button name="Отключить" id="58">
+					<CommandName>Form.Command.Отключить</CommandName>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Отключить эмулятор</v8:content>
+						</v8:item>
+					</Title>
+					<ExtendedTooltip name="ОтключитьРасширеннаяПодсказка" id="59"/>
+				</Button>
+			</ChildItems>
+		</UsualGroup>
+		<InputField name="Протокол" id="60">
+			<DataPath>Протокол</DataPath>
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Протокол</v8:content>
+				</v8:item>
+			</Title>
+			<ReadOnly>true</ReadOnly>
+			<TitleLocation>Top</TitleLocation>
+			<MultiLine>true</MultiLine>
+			<Height>10</Height>
+			<HorizontalStretch>true</HorizontalStretch>
+			<ContextMenu name="ПротоколКонтекстноеМеню" id="61"/>
+			<ExtendedTooltip name="ПротоколРасширеннаяПодсказка" id="62"/>
+		</InputField>
+	</ChildItems>
+	<Attributes>
+		<Attribute name="Объект" id="63">
+			<Type>
+				<v8:Type>cfg:ExternalDataProcessorObject.ЭЧЗ_НастройкаПодключения</v8:Type>
+			</Type>
+			<MainAttribute>true</MainAttribute>
+		</Attribute>
+		<Attribute name="Организация" id="64">
+			<Type>
+				<v8:Type>cfg:CatalogRef.Организации</v8:Type>
+			</Type>
+		</Attribute>
+		<Attribute name="Подразделение" id="65">
+			<Type>
+				<v8:Type>cfg:CatalogRef.СтруктураПредприятия</v8:Type>
+			</Type>
+		</Attribute>
+		<Attribute name="ИНН" id="66">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>12</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+		</Attribute>
+		<Attribute name="АдресЭмулятора" id="67">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>100</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+		</Attribute>
+		<Attribute name="ПортЭмулятора" id="68">
+			<Type>
+				<v8:Type>xs:decimal</v8:Type>
+				<v8:NumberQualifiers>
+					<v8:Digits>5</v8:Digits>
+					<v8:FractionDigits>0</v8:FractionDigits>
+					<v8:AllowedSign>Nonnegative</v8:AllowedSign>
+				</v8:NumberQualifiers>
+			</Type>
+		</Attribute>
+		<Attribute name="ПроксиДля" id="69">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>100</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+		</Attribute>
+		<Attribute name="ВключитьТестовыйКонтур" id="70">
+			<Type>
+				<v8:Type>xs:boolean</v8:Type>
+			</Type>
+		</Attribute>
+		<Attribute name="ВключитьУчетИСМП" id="71">
+			<Type>
+				<v8:Type>xs:boolean</v8:Type>
+			</Type>
+		</Attribute>
+		<Attribute name="ЗарегистрироватьВЭмуляторе" id="72">
+			<Type>
+				<v8:Type>xs:boolean</v8:Type>
+			</Type>
+		</Attribute>
+		<Attribute name="НастроитьСУЗ" id="73">
+			<Type>
+				<v8:Type>xs:boolean</v8:Type>
+			</Type>
+		</Attribute>
+		<Attribute name="АдресСУЗ" id="74">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>100</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+		</Attribute>
+		<Attribute name="ИдентификаторСУЗ" id="75">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>50</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+		</Attribute>
+		<Attribute name="Протокол" id="76">
+			<Type>
+				<v8:Type>xs:string</v8:Type>
+				<v8:StringQualifiers>
+					<v8:Length>0</v8:Length>
+					<v8:AllowedLength>Variable</v8:AllowedLength>
+				</v8:StringQualifiers>
+			</Type>
+		</Attribute>
+	</Attributes>
+	<Commands>
+		<Command name="Настроить" id="77">
+			<Action>НастроитьОбработка</Action>
+		</Command>
+		<Command name="Проверить" id="78">
+			<Action>ПроверитьОбработка</Action>
+		</Command>
+		<Command name="Отключить" id="79">
+			<Action>ОтключитьОбработка</Action>
+		</Command>
+		<Command name="ЗаполнитьТестовымиДанными" id="80">
+			<Action>ЗаполнитьТестовымиДаннымиОбработка</Action>
+		</Command>
+	</Commands>
+</Form>

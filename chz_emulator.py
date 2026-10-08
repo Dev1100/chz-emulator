@@ -70,7 +70,7 @@ PG_NAMES = {'lp': 'Лёгкая промышленность (одежда, бе
 INTRODUCE = ('LP_INTRODUCE_GOODS', 'LP_INTRODUCE_OST', 'LP_INTRODUCE_GOODS_CROSSBORDER',
              'LP_GOODS_IMPORT', 'LP_FTS_INTRODUCE', 'LP_CONTRACT_COMMISSIONING', 'LP_RETURN',
              'LP_INTRODUCE_GOODS_INDIVIDUALS', 'LK_CONTRACT_COMMISSIONING', 'LK_INDI_COMMISSIONING',
-             'LP_INTRODUCE_OST_CSV', 'OST_DESCRIPTION', 'CROSSBORDER', 'LK_GTIN_RECEIPT',
+             'LP_INTRODUCE_OST_CSV', 'CROSSBORDER', 'FURS_FTS_INTRODUCE',
              'LP_GOODS_IMPORT_AUTO', 'FURS_IMPORT', 'LP_FTS_INTRODUCE_AUTO')
 RETIRE = ('LK_RECEIPT', 'LP_SHIP_GOODS_CROSSBORDER', 'EAS_CROSSBORDER_EXPORT', 'EAS_CROSSBORDER',
           'LK_REMARK_RETIRE', 'LP_RECEIPT', 'LK_KM_WITHDRAWAL', 'RECEIPT')
@@ -80,7 +80,14 @@ WRITE_OFF = ('KM_CANCELLATION', 'LK_KM_CANCELLATION', 'LK_APPLIED_KM_CANCELLATIO
 SHIP = ('LP_SHIP_GOODS', 'LP_SHIP_RECEIPT', 'LP_SHIP_GOODS_EAES')
 ACCEPT = ('LP_ACCEPT_GOODS',)
 CANCEL_SHIP = ('LP_CANCEL_SHIPMENT', 'LP_CANCEL_SHIPMENT_CROSSBORDER')
-AGGREGATE = ('AGGREGATION_DOCUMENT', 'AGGREGATION', 'LP_AGGREGATION')
+AGGREGATE = ('AGGREGATION_DOCUMENT', 'AGGREGATION', 'LP_AGGREGATION', 'SETS_AGGREGATION')
+REMARK = ('LK_REMARK',)                                  # перемаркировка: last_uin → new_uin
+CHANGE = ('CIS_INFORMATION_CHANGE',)                     # уточнение сведений (даты производства/годности)
+INDIVIDUALIZE = ('LK_INDIVIDUALIZATION',)                # индивидуализация КИЗ → «нанесён»
+CONNECT_TAP = ('CONNECT_TAP',)                           # подключение кега к оборудованию розлива
+UTD = ('UNIVERSAL_TRANSFER_DOCUMENT',)                   # УПД с кодами → как отгрузка
+# Принимаются без изменения кодов: ОСУ по GTIN (LK_GTIN_RECEIPT*, EAS_GTIN_*), OST_DESCRIPTION, отчёты,
+# CIRCULATION_INFORMATION*, CIS_NOTICE, FIXATION*, ACCOUNTING, WRITE_OFF (сырьё), REPORT_REWEIGHING, УКД.
 DISAGGREGATE = ('DISAGGREGATION_DOCUMENT', 'DISAGGREGATION', 'LP_DISAGGREGATION')
 REAGGREGATE = ('REAGGREGATION_DOCUMENT', 'REAGGREGATION')
 ATK = ('ATK_AGGREGATION', 'ATK_DISAGGREGATION', 'ATK_TRANSFORMATION')
@@ -89,7 +96,8 @@ RETIRED_EX = {'RETIRED_CANCELLATION', 'RETIRED_CONFISCATION', 'RETIRED_DAMAGE_LO
               'RETIRED_DONATION', 'RETIRED_EEC_EXPORT', 'RETIRED_BEYOND_EEC_EXPORT', 'RETIRED_ENTERPRISE_USE',
               'RETIRED_LIQUIDATION', 'RETIRED_NO_RETAIL_USE', 'RETIRED_RETURN'}
 CODE_KEYS = {'uit_code', 'uitu_code', 'cis', 'uit', 'uitu', 'ki', 'kitu', 'uitCode', 'uituCode',
-             'kiz', 'cises', 'sntins', 'codes', 'cis_list', 'cisList', 'gtinCode', 'code'}
+             'kiz', 'cises', 'sntins', 'codes', 'cis_list', 'cisList', 'code', 'new_uin', 'last_uin',
+             'КИЗ', 'НомУпак', 'ИдентТрансУпак'}
 
 
 def xml_to_dict(el):
@@ -104,6 +112,14 @@ def xml_to_dict(el):
         else:
             d[tag] = v
     return d
+
+
+def emission_type(order_body):
+    """Способ выпуска из заказа СУЗ (releaseMethodType) → emissionType ответа cises/info."""
+    r = (order_body.get('releaseMethodType') or (order_body.get('attributes') or {}).get('releaseMethodType')
+         or 'PRODUCTION').upper()
+    return {'PRODUCTION': 'LOCAL', 'PRODUCED_IN_RF': 'LOCAL', 'IMPORT': 'FOREIGN',
+            'IMPORTED_INTO_RF': 'FOREIGN'}.get(r, r)
 
 
 def now():
@@ -179,6 +195,9 @@ class Store:
         CREATE TABLE IF NOT EXISTS tokens(token TEXT PRIMARY KEY, inn TEXT, kind TEXT, expires REAL);
         CREATE TABLE IF NOT EXISTS mods(id TEXT PRIMARY KEY, inn TEXT, fias TEXT, kpp TEXT,
             address TEXT, pgs TEXT);
+        CREATE TABLE IF NOT EXISTS dispenser(id TEXT PRIMARY KEY, inn TEXT, name TEXT, pg TEXT, params TEXT,
+            created TEXT, result_id TEXT);
+        CREATE TABLE IF NOT EXISTS agreements(id TEXT PRIMARY KEY, inn TEXT, status TEXT, body TEXT, created TEXT);
         ''')
         if self.one("SELECT name FROM sqlite_master WHERE name='products'"):   # старая база — в Нац. каталог
             self.db.execute("INSERT OR IGNORE INTO nk(gtin, name, brand, tnved, pg, inn, status, created) "
@@ -339,7 +358,7 @@ class Chz:
             'tnVedEaes': (p.get('tnved') or '')[:4], 'tnVedEaesGroup': (p.get('tnved') or '')[:2],
             'productName': p.get('name'), 'productGroupId': PG_IDS.get(c['pg']),
             'productGroup': c['pg'], 'brand': p.get('brand'),
-            'emissionDate': c['emission_date'], 'emissionType': 'LOCAL',
+            'emissionDate': c['emission_date'], 'emissionType': json.loads(c['extra'] or '{}').get('emissionType') or 'LOCAL',
             'applicationDate': c['applied_date'], 'introducedDate': c['introduced_date'],
             'productionDate': c['production_date'], 'producedDate': c['production_date'],
             'expirationDate': c['expiration_date'],
@@ -453,6 +472,13 @@ class Chz:
                             'reg_number') or doc_id[:8]
         doc_date = self.first(content, 'document_date', 'doc_date', 'documentDate', 'action_date',
                               'transfer_date', 'production_date') or iso()
+        if doc_type in UTD and isinstance(content, dict):
+            def inn_under(node, key):
+                part = self.first(content, key) if isinstance(content, dict) else None
+                return self.first(part, 'ИННЮЛ', 'ИННФЛ') if isinstance(part, dict) else None
+            sender = inn_under(content, 'СвПрод') or sender
+            receiver = inn_under(content, 'СвПокуп') or receiver
+            number = self.first(content, 'НомерДок', 'НомерСчФ') or number
         if doc_type in ACCEPT:   # приёмку подаёт получатель
             sender, receiver = (self.first(content, 'trade_participant_inn_sender') or sender), req_inn
         ready = time.time() + float(self.s.setting('doc_delay_sec') or 0)
@@ -468,7 +494,8 @@ class Chz:
         except Exception as e:
             errors = [f'Ошибка обработки в эмуляторе: {e}']
             traceback.print_exc()
-        status = 'CHECKED_NOT_OK' if errors else ('WAIT_ACCEPTANCE' if doc_type in SHIP else 'CHECKED_OK')
+        status = 'CHECKED_NOT_OK' if errors else ('WAIT_ACCEPTANCE' if doc_type in SHIP
+                                                  or doc_type in UTD and receiver else 'CHECKED_OK')
         self.s.x('UPDATE docs SET status=?, errors=? WHERE id=?', status,
                  json.dumps(errors, ensure_ascii=False), doc_id)
         return doc_id, None
@@ -480,6 +507,8 @@ class Chz:
             return self.apply_aggregation(doc_id, t, content, req_inn, pg)
         if t in DISAGGREGATE:
             return self.apply_disaggregation(doc_id, content, req_inn)
+        if t in REMARK:
+            return self.apply_remark(doc_id, content, sender)
         codes, errors = [], []
         for v in values:
             c = self.lookup(v, sender)
@@ -524,7 +553,20 @@ class Chz:
             upd = dict(status='INTRODUCED', status_ex=None)
         elif t in WRITE_OFF:
             upd = dict(status='WRITTEN_OFF', status_ex=None)
-        elif t in SHIP:
+        elif t in CHANGE:
+            pd = self.first(content, 'production_date', 'productionDate')
+            ed = self.first(content, 'expiration_date', 'expirationDate')
+            upd = {k: v for k, v in (('production_date', pd), ('expiration_date', ed)) if v}
+        elif t in INDIVIDUALIZE:
+            upd = dict(status='APPLIED', applied_date=iso())
+        elif t in CONNECT_TAP:
+            for c in codes:
+                if strict and c['status'] != 'INTRODUCED':
+                    errors.append(f"{c['cis']}: кег не в обороте ({c['status']})")
+                extra = json.loads(c['extra'] or '{}')
+                extra['connectDate'] = iso()
+                self.s.update_code(c['cis'], extra=json.dumps(extra))
+        elif t in SHIP or t in UTD and receiver:
             for c in codes:
                 if strict and c['status'] != 'INTRODUCED':
                     errors.append(f"{c['cis']}: код не в обороте ({c['status']})")
@@ -533,7 +575,7 @@ class Chz:
             upd = dict(status_ex='WAIT_SHIPMENT')
             codes = expand(codes)
         elif t in ACCEPT:
-            ship = self.s.one("SELECT * FROM docs WHERE type IN ('LP_SHIP_GOODS','LP_SHIP_RECEIPT') AND "
+            ship = self.s.one("SELECT * FROM docs WHERE type IN ('LP_SHIP_GOODS','LP_SHIP_RECEIPT','UNIVERSAL_TRANSFER_DOCUMENT') AND "
                               "receiver_inn=? AND status='WAIT_ACCEPTANCE' AND number=? ORDER BY received DESC",
                               req_inn, self.first(content, 'document_number', 'document_num') or '')
             if not codes and ship:
@@ -557,6 +599,39 @@ class Chz:
         if t in SHIP and receiver:
             # входящий документ получателю виден в doc/list как WAIT_ACCEPTANCE (он же — исходный)
             pass
+        return errors if strict else []
+
+    def apply_remark(self, doc_id, content, inn):
+        """Перемаркировка: старый код выбывает (REMARK_RETIRED), новый вводится в оборот у владельца."""
+        strict, errors, pairs = self.s.setting('strict'), [], []
+
+        def walk(n):
+            if isinstance(n, dict):
+                if n.get('new_uin'):
+                    pairs.append((n.get('last_uin'), n['new_uin']))
+                for v in n.values():
+                    walk(v)
+            elif isinstance(n, list):
+                for v in n:
+                    walk(v)
+        walk(content)
+        for old, new in pairs:
+            c_new = self.lookup(new, inn)
+            if not c_new:
+                errors.append(f'{new}: новый код не найден (закажите коды в СУЗ со способом «Перемаркировка»)')
+            elif strict and c_new['status'] not in ('EMITTED', 'APPLIED'):
+                errors.append(f"{new}: новый код в статусе {c_new['status']}")
+            c_old = self.s.find_code(old) if old else None
+            if errors and strict:
+                continue
+            if c_old:
+                self.s.update_code(c_old['cis'], status='RETIRED', status_ex='REMARK_RETIRED', last_doc=doc_id)
+            if c_new:
+                self.s.update_code(c_new['cis'], status='INTRODUCED', status_ex=None, owner_inn=inn,
+                                   introduced_date=iso(), last_doc=doc_id,
+                                   gtin=c_new['gtin'] or (c_old or {}).get('gtin'))
+        if not pairs:
+            errors.append('В документе перемаркировки нет пар last_uin/new_uin')
         return errors if strict else []
 
     def apply_aggregation(self, doc_id, t, content, inn, pg):
@@ -597,7 +672,7 @@ class Chz:
                 parent = parent or ('ATK' + rnd(17, string.digits))
                 ptype = 'ATK'
             else:
-                ptype = 'LEVEL2' if parent and parent.startswith('00') else 'LEVEL1'
+                ptype = 'SET' if t == 'SETS_AGGREGATION' else ('LEVEL2' if parent and parent.startswith('00') else 'LEVEL1')
             st = found[0]['status'] if found else 'APPLIED'
             gt = found[0]['gtin'] if found and ptype != 'LEVEL2' else None
             if not self.s.find_code(parent):
@@ -717,7 +792,7 @@ class Chz:
                 cis, full = make_code(gtin, o['pg'])
             fulls.append(full)
             rows.append((cis, full, gtin, o['pg'], 'EMITTED', None, o['inn'], o['inn'], 'UNIT', None, iso(),
-                         None, None, None, None, None, o['id'], None))
+                         None, None, None, None, None, o['id'], json.dumps({'emissionType': emission_type(body)})))
         self.s.many('INSERT OR REPLACE INTO codes VALUES(' + ','.join('?' * 18) + ')', rows)
         block = str(uuid.uuid4())
         self.s.x('INSERT INTO blocks VALUES(?,?,?,?,?)', block, o['id'], gtin, iso(), json.dumps(fulls))
@@ -1193,11 +1268,18 @@ def sim_doc_info(h, chz, args=(), **k):
     ok(v)
 
 
+@route('GET', r'api/v4/true-api/receipt/list')
+def receipt_list(h, chz, **k):
+    h.inn()
+    ok({'results': [], 'nextPage': False})
+
+
 @route('GET', r'api/v4/true-api/doc/list|api/v3/true-api/doc/list')
 def doc_list(h, chz, query=None, **k):
     inn = h.inn()
     sql, a = 'SELECT * FROM docs WHERE (sender_inn=? OR receiver_inn=?)', [inn, inn]
-    for qk, col in (('documentType', 'type'), ('documentStatus', 'status'), ('number', 'number'), ('pg', 'pg')):
+    for qk, col in (('documentType', 'type'), ('documentStatus', 'status'), ('number', 'number'), ('pg', 'pg'),
+                    ('senderInn', 'sender_inn'), ('receiverInn', 'receiver_inn')):
         if query.get(qk):
             sql += f' AND {col}=?'
             a.append(query[qk])
@@ -1290,7 +1372,7 @@ def suz_connection(h, chz, query=None, **k):
     ok({'status': 'SUCCESS', 'omsConnection': str(uuid.uuid4())})
 
 
-@route('GET', r'api/v[23]/token')
+@route('GET', r'api/v[23]/(?:[a-z_]+/)?token')
 def suz_token(h, chz, query=None, **k):
     tok = str(uuid.uuid4())
     chz.s.x('INSERT OR REPLACE INTO tokens VALUES(?,?,?,?)', tok, chz.s.setting('default_inn'), 'suz', time.time() + 36000)
@@ -1449,10 +1531,189 @@ def suz_product_info(h, chz, data=None, **k):
     ok({'products': [{'gtin': g, 'name': (chz.s.product(g) or {}).get('name', ''), 'productAttributes': {}} for g in gt]})
 
 
+@route('GET', r'api/v3/true-api/documents/([^/]+)/info')
+def documents_info_v3(h, chz, args=(), **k):
+    inn = h.inn()
+    d = chz.s.one('SELECT * FROM docs WHERE id=?', args[0])
+    if not d:
+        raise err(404, 'Документ не найден')
+    ok(chz.doc_view(d, for_inn=inn))
+
+
+@route('GET', r'api/v4/true-api/edo/inn/(\d+)')
+def edo_inn(h, chz, args=(), **k):
+    h.inn()
+    ok({'id': f'2BM-{args[0]}-EMU', 'inn': args[0], 'operator': 'ЭДО-лайт (эмулятор)'})
+
+
+# ---- Выгрузки ГИС МТ (dispenser): «Список КИ на балансе», «Сведения об отклонениях»
+@route('POST', r'api/v3/true-api/dispenser/tasks')
+def dispenser_create(h, chz, data=None, **k):
+    inn = h.inn()
+    d = data or {}
+    tid, created = str(uuid.uuid4()), iso()
+    chz.s.x('INSERT INTO dispenser VALUES(?,?,?,?,?,?,?)', tid, inn, d.get('name') or '',
+            str(d.get('productGroupCode') or ''), json.dumps(d, ensure_ascii=False), created, str(uuid.uuid4()))
+    ok({'id': tid, 'name': d.get('name'), 'currentStatus': 'PREPARATION', 'createDate': created})
+
+
+@route('GET', r'api/v3/true-api/dispenser/tasks/([^/]+)')
+def dispenser_task(h, chz, args=(), **k):
+    h.inn()
+    t = chz.s.one('SELECT * FROM dispenser WHERE id=?', args[0])
+    if not t:
+        raise err(404, 'Задание не найдено')
+    ok({'id': t['id'], 'name': t['name'], 'currentStatus': 'COMPLETED', 'createDate': t['created']})
+
+
+@route('GET', r'api/v3/true-api/dispenser/results')
+def dispenser_results(h, chz, query=None, **k):
+    inn = h.inn()
+    ids = [i for i in (query.get('task_ids') or query.get('taskIds') or '').split(',') if i]
+    rows = [chz.s.one('SELECT * FROM dispenser WHERE id=?', i) for i in ids] if ids else \
+        chz.s.q('SELECT * FROM dispenser WHERE inn=? ORDER BY created DESC LIMIT 50', inn)
+    ok({'list': [{'id': r['result_id'], 'taskId': r['id'], 'available': 'AVAILABLE', 'name': r['name']}
+                 for r in rows if r]})
+
+
+@route('GET', r'api/v3/true-api/dispenser/results/([^/]+)/file')
+def dispenser_file(h, chz, args=(), **k):
+    import io as _io
+    import zipfile
+    t = chz.s.one('SELECT * FROM dispenser WHERE result_id=?', args[0])
+    if not t:
+        raise err(404, 'Результат выгрузки не найден')
+    # пустое поле — без кавычек: 1С трактует "" как экранированную кавычку
+    q = lambda v: '' if v in (None, '') else '"' + str(v).replace('"', '""') + '"'
+    if 'DEVIATION' in (t['name'] or '').upper() or 'ОТКЛОН' in (t['name'] or '').upper():
+        lines = ['Сведения об отклонениях', ','.join(q(c) for c in ('Вид отклонения', 'Результат проверки', 'Субъект',
+                 'Адрес места фиксации отклонения', 'Регистрационный номер ККТ (из чека)', 'Нивелировано'))]
+    else:   # список КИ на балансе: первая строка — заголовок отчёта, вторая — колонки
+        lines = ['Список КИ на балансе', ','.join(q(c) for c in ('gtin', 'parent', 'status', 'emissionType',
+                                                                    'packageType', 'requestedCis'))]
+        for c in chz.s.q("SELECT * FROM codes WHERE owner_inn=? AND status='INTRODUCED'", t['inn']):
+            et = json.loads(c['extra'] or '{}').get('emissionType') or 'LOCAL'
+            lines.append(','.join(q(v) for v in (c['gtin'], c['parent'], c['status'], et,
+                                                 c['package_type'] or 'UNIT', c['cis'])))
+    buf = _io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
+        z.writestr('report.csv', '\n'.join(lines).encode('utf-8'))
+    raise Resp(200, buf.getvalue(), 'application/zip')
+
+
+# ---- Реестр согласий о предоставлении информации
+@route('POST', r'api/v3/true-api/agreement-registry/agreement')
+def agreement_create(h, chz, data=None, **k):
+    inn = h.inn()
+    aid = str(uuid.uuid4())
+    chz.s.x('INSERT INTO agreements VALUES(?,?,?,?,?)', aid, inn, 'DRAFT', json.dumps(data or {}, ensure_ascii=False), iso())
+    ok({'id': aid})
+
+
+@route('GET', r'api/v3/true-api/agreement-registry/agreement/list')
+def agreement_list(h, chz, **k):
+    inn = h.inn()
+    ok({'results': [{'id': a['id'], 'status': a['status'], 'createdAt': a['created'], **json.loads(a['body'])}
+                    for a in chz.s.q('SELECT * FROM agreements WHERE inn=? ORDER BY created DESC', inn)]})
+
+
+@route('GET', r'api/v3/true-api/agreement-registry/agreement/([^/]+)/trusted-inns')
+def agreement_trusted(h, chz, args=(), **k):
+    h.inn()
+    a = chz.s.one('SELECT * FROM agreements WHERE id=?', args[0])
+    b = json.loads(a['body']) if a else {}
+    ok({'everyonePermitted': b.get('everyonePermitted', False), 'expirationDate': b.get('expirationDate'),
+        'trustedInns': b.get('trustedInns', [])})
+
+
+@route('GET', r'api/v3/true-api/agreement-registry/([^/]+)/print-form')
+def agreement_print(h, chz, args=(), **k):
+    h.inn()
+    text(f'<?xml version="1.0" encoding="UTF-8"?><agreement id="{args[0]}">Согласие (эмулятор ЧЗ)</agreement>')
+
+
+@route('POST', r'api/v3/true-api/agreement-registry/publish')
+def agreement_publish(h, chz, data=None, **k):
+    h.inn()
+    did = (data or {}).get('documentId')
+    chz.s.x("UPDATE agreements SET status='PUBLISHED' WHERE id=?", did)
+    ok({'documentId': did, 'status': 'PUBLISHED'})
+
+
+@route('POST', r'api/v3/true-api/agreement-registry/cancellation')
+def agreement_cancel(h, chz, data=None, **k):
+    h.inn()
+    cid = str(uuid.uuid4())
+    did = (data or {}).get('agreementId') or (data or {}).get('documentId') or (data or {}).get('id')
+    if did:
+        chz.s.x("UPDATE agreements SET status='CANCELLED' WHERE id=?", did)
+    ok({'id': cid})
+
+
+@route('POST', r'api/v3/facade/agreement-registry/agreement/decline')
+def agreement_decline(h, chz, data=None, **k):
+    h.inn()
+    ok({})
+
+
+# ---- Локальный модуль ЧЗ (ЛМ ЧЗ): касса, разрешительный режим офлайн. В 1С указывается адрес эмулятора.
+@route('GET', r'api/v[12]/status')
+def lm_status(h, chz, **k):
+    ok({'status': 'ready', 'operationMode': 'active', 'version': 'chz-emulator', 'lastSync': int(time.time() * 1000),
+        'inst': 'emu-lm', 'requiresDownload': False})
+
+
+@route('POST', r'api/v[12]/(init|changePassword)')
+def lm_init(h, chz, **k):
+    ok({'code': 0, 'description': 'ok'})
+
+
+@route('GET', r'api/v1/config')
+def lm_config(h, chz, **k):
+    ok({'code': 0, 'productGroups': list(PG_IDS), 'mode': 'online'})
+
+
+@route('POST', r'api/v1/groups')
+def lm_groups(h, chz, **k):
+    ok({'code': 0, 'description': 'ok'})
+
+
+@route('POST', r'api/v[12]/cis/outCheck')
+def lm_out_check(h, chz, data=None, **k):
+    d = data or {}
+    codes = d.get('cis_list') or ([d['cis']] if d.get('cis') else [])
+    try:
+        codes_check(h, chz, data={'codes': codes})
+    except Resp as r:
+        res = r.body
+    ok({'code': 0, 'description': 'ok', 'results': [{'codes': res['codes'], 'reqId': res['reqId'],
+                                                       'reqTimestamp': res['reqTimestamp']}]})
+
+
+@route('POST', r'api/v[12]/cis/(sell|return)')
+def lm_sell(h, chz, data=None, args=(), **k):
+    for v in (data or {}).get('cis_list') or []:
+        c = chz.s.find_code(v if isinstance(v, str) else v.get('cis', ''))
+        if c:
+            chz.s.update_code(c['cis'], status='RETIRED' if args[0] == 'sell' else 'INTRODUCED', status_ex=None)
+    ok({'code': 0, 'description': 'ok'})
+
+
 # ---- Национальный каталог (api.integrators.nk.crptech.ru / апи.национальный-каталог.рф), API v3
 def nk_key(query):
     if not query.get('apikey'):
         raise Resp(401, {'apiversion': 3, 'error': {'code': 401, 'message': 'Не передан apikey'}})
+
+
+@route('GET', r'_emu/epf/([A-Za-z_А-Яа-я]+)\.epf', admin=True)
+def ui_epf(h, chz, args=(), **k):
+    """Обработки 1С: ЭЧЗ_НастройкаПодключения, ЭЧЗ_ВыгрузкаВНК."""
+    from urllib.parse import unquote
+    path = os.path.join(HERE, 'epf', unquote(args[0]) + '.epf')
+    if not os.path.isfile(path):
+        raise err(404, 'Нет такой обработки')
+    with open(path, 'rb') as f:
+        raise Resp(200, f.read(), 'application/octet-stream')
 
 
 @route('GET', r'_emu/extension\.cfe', admin=True)
@@ -1629,6 +1890,7 @@ def ui_codes(h, chz, data=None, **k):
     gtin = d.get('gtin') or make_gtin()
     owner = d.get('owner_inn') or chz.s.setting('default_inn')
     status = d.get('status') or 'INTRODUCED'
+    extra = json.dumps({'emissionType': emission_type({'releaseMethodType': d.get('release') or 'PRODUCTION'})})
     if not chz.s.nk_card(gtin):
         chz.s.nk_put(gtin, d.get('name'), pg, d.get('producer_inn') or owner, d.get('tnved') or '', d.get('brand') or '')
     rows, out = [], []
@@ -1637,7 +1899,7 @@ def ui_codes(h, chz, data=None, **k):
         out.append(full)
         rows.append((cis, full, gtin, pg, status, None, owner, d.get('producer_inn') or owner, 'UNIT', None,
                      iso(), iso() if status != 'EMITTED' else None, iso() if status in ('INTRODUCED', 'RETIRED') else None,
-                     d.get('production_date') or iso(), d.get('expiration_date'), None, None, None))
+                     d.get('production_date') or iso(), d.get('expiration_date'), None, None, extra))
     chz.s.many('INSERT OR REPLACE INTO codes VALUES(' + ','.join('?' * 18) + ')', rows)
     box = None
     if d.get('aggregate'):
