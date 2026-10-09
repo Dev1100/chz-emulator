@@ -71,8 +71,9 @@ def main():
 
     # перемаркировка, уточнение сведений, УПД, dispenser, локальный модуль, согласия
     import base64, zipfile, io
-    def mk(status, n=1, pg='lp'):
-        adm.request('POST', '/_emu/codes', json.dumps({'pg': pg, 'count': n, 'status': status, 'owner_inn': INN}),
+    def mk(status, n=1, pg='lp', release='PRODUCTION'):
+        adm.request('POST', '/_emu/codes', json.dumps({'pg': pg, 'count': n, 'status': status, 'owner_inn': INN,
+                                                       'release': release}),
                     {'Content-Type': 'application/json'})
         return [c.split(GS)[0] for c in json.loads(adm.getresponse().read())['codes']]
     def send(t, content, fmt='MANUAL', raw=None):
@@ -82,12 +83,13 @@ def main():
             'product_document': base64.b64encode(body.encode()).decode()})
         srv.chz.s.x('UPDATE docs SET ready_at=0')
         return cl.call('GET', f'api/v4/true-api/doc/{did}/info')[1][0]
-    old, new = mk('INTRODUCED')[0], mk('APPLIED')[0]
+    old, new = mk('INTRODUCED')[0], mk('APPLIED', release='REMARK')[0]   # новый КИ: APPLIED, эмиссия REMARK
     d = send('LK_REMARK', {'inn': INN, 'remarking_date': '2026-10-09', 'remarking_cause': 'KM_SPOILED',
                            'products': [{'last_uin': old, 'new_uin': new}]})
     assert d['status'] == 'CHECKED_OK', d
     st, info = cl.call('POST', 'api/v3/true-api/cises/info', [old, new])
-    assert info[0]['cisInfo']['statusEx'] == 'REMARK_RETIRED' and info[1]['cisInfo']['status'] == 'INTRODUCED', info
+    assert info[0]['cisInfo']['status'] == 'WRITTEN_OFF' and info[0]['cisInfo']['statusEx'] == 'REMARK_RETIRED' \
+        and info[1]['cisInfo']['status'] == 'INTRODUCED', info
     d = send('CIS_INFORMATION_CHANGE', {'participant_inn': INN, 'expirationDate': '2027-12-31',
                                         'products': [{'cis': new}]})
     assert d['status'] == 'CHECKED_OK' and srv.chz.s.find_code(new)['expiration_date'] == '2027-12-31'

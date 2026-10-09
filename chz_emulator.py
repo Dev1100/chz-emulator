@@ -140,6 +140,14 @@ UTD = ('UNIVERSAL_TRANSFER_DOCUMENT',)                   # УПД с кодам�
 # Принимаются без изменения кодов: ОСУ по GTIN (LK_GTIN_RECEIPT*, EAS_GTIN_*), OST_DESCRIPTION, отчёты,
 # CIRCULATION_INFORMATION*, CIS_NOTICE, FIXATION*, ACCOUNTING, WRITE_OFF (сырьё), REPORT_REWEIGHING, УКД.
 DISAGGREGATE = ('DISAGGREGATION_DOCUMENT', 'DISAGGREGATION', 'LP_DISAGGREGATION')
+# True API, справочник «Статусы КИ»: «Расформирован» — DISAGGREGATION, у табачных групп — DISAGGREGATED
+TOBACCO_PGS = {'tobacco', 'otp', 'ncp'}
+AGG_TYPES = {'SET', 'BUNDLE', 'LEVEL1', 'GROUP', 'LEVEL2', 'BOX'}     # КИН, комплект, КИГУ, КИТУ
+KITU_TYPES = {'LEVEL2', 'BOX'}
+
+
+def disagg_status(pg):
+    return 'DISAGGREGATED' if pg in TOBACCO_PGS else 'DISAGGREGATION'
 REAGGREGATE = ('REAGGREGATION_DOCUMENT', 'REAGGREGATION')
 ATK = ('ATK_AGGREGATION', 'ATK_DISAGGREGATION', 'ATK_TRANSFORMATION')
 # Особые состояния выбытия, которые знает 1С (СтатусКодаМаркировкиИСМП); прочие причины — без statusEx
@@ -566,6 +574,14 @@ class Chz:
                  json.dumps(errors, ensure_ascii=False), doc_id)
         return doc_id, None
 
+    def auto_disaggregate(self, parent_cis, doc_id):
+        """Авторасформирование агрегата (True API: действие с вложенным КИ расформировывает агрегат)."""
+        a = self.s.find_code(parent_cis)
+        if not a:
+            return
+        self.s.x('UPDATE codes SET parent=NULL, status_ex=NULL, last_doc=? WHERE parent=?', doc_id, a['cis'])
+        self.s.update_code(a['cis'], status=disagg_status(a['pg']), status_ex=None, last_doc=doc_id)
+
     def apply_document(self, doc_id, t, content, sender, receiver, req_inn, pg):
         strict = self.s.setting('strict')
         values = self.collect_codes(content)
@@ -603,6 +619,17 @@ class Chz:
                     errors.append(f"{c['cis']}: недопустимый статус {c['status']} для {t}: "
                                   + ('нужен отчёт о нанесении (статус «APPLIED»)' if c['status'] == 'EMITTED'
                                      else 'требуется статус «APPLIED»'))
+                if strict and c['owner_inn'] and c['owner_inn'] != sender:
+                    errors.append(f"{c['cis']}: отправитель {sender} не собственник кода ({c['owner_inn']})")
+                if strict and c['package_type'] == 'SET' and not self.s.one(
+                        'SELECT 1 FROM codes WHERE parent=?', c['cis']):
+                    errors.append(f"{c['cis']}: набор пустой, сначала сформируйте набор")
+            # вложенный КИ, указанный без своего агрегата, расформировывает агрегат; агрегат вводится с вложениями
+            listed = {c['cis'] for c in codes}
+            for c in codes:
+                if c['parent'] and c['parent'] not in listed and not (errors and strict):
+                    self.auto_disaggregate(c['parent'], doc_id)
+            codes = expand([self.s.find_code(c['cis']) for c in codes])
             upd = dict(status='INTRODUCED', status_ex=None, owner_inn=sender, introduced_date=iso())
             pd = self.first(content, 'production_date', 'productionDate')
             if pd:
@@ -617,10 +644,36 @@ class Chz:
             ex = str(action).upper()
             ex = ex if ex.startswith('RETIRED') else 'RETIRED_' + ex
             upd = dict(status='RETIRED', status_ex=ex if ex in RETIRED_EX else None)  # розница — без особого состояния
-            codes = expand(codes)
+            if not (errors and strict):
+                listed = {c['cis'] for c in codes}
+                for c in codes:
+                    a = self.s.find_code(c['parent']) if c['parent'] and c['parent'] not in listed else None
+                    if a and a['package_type'] in ('LEVEL1', 'GROUP'):      # КИ из КИГУ: КИГУ «Списан»
+                        self.s.x('UPDATE codes SET parent=NULL WHERE parent=?', a['cis'])
+                        self.s.update_code(a['cis'], status='WRITTEN_OFF', status_ex=None, last_doc=doc_id)
+                    elif a:                                                # КИН / КИТУ — авторасформирование
+                        self.auto_disaggregate(a['cis'], doc_id)
+                kids = expand([self.s.find_code(c['cis']) for c in codes])
+                for c in codes:      # КИН и КИТУ выводятся только через расформирование: вложения выбывают
+                    if c['package_type'] in ('SET', 'BUNDLE') or c['package_type'] in KITU_TYPES:
+                        self.auto_disaggregate(c['cis'], doc_id)
+                codes = [k for k in kids if not (k['package_type'] in ('SET', 'BUNDLE')
+                                                 or k['package_type'] in KITU_TYPES)]
+            else:
+                codes = expand(codes)
         elif t in RETIRE_CANCEL:
+            for c in codes:
+                if strict and c['owner_inn'] and c['owner_inn'] != sender:
+                    errors.append(f"{c['cis']}: отправитель {sender} не собственник кода ({c['owner_inn']})")
             upd = dict(status='INTRODUCED', status_ex=None)
+            codes = expand(codes)          # агрегат возвращается в оборот вместе с вложениями
         elif t in WRITE_OFF:
+            for c in codes:
+                if strict and c['status'] not in ('EMITTED', 'APPLIED', 'INTRODUCED'):
+                    errors.append(f"{c['cis']}: списать можно код EMITTED, APPLIED или INTRODUCED, сейчас {c['status']}")
+                a = self.s.find_code(c['parent']) if c['parent'] else None
+                if strict and a and (a['package_type'] in ('SET', 'BUNDLE') or a['package_type'] in KITU_TYPES):
+                    errors.append(f"{c['cis']}: вложен в {a['cis']}, сначала расформируйте набор / КИТУ")
             upd = dict(status='WRITTEN_OFF', status_ex=None)
         elif t in CHANGE:
             pd = self.first(content, 'production_date', 'productionDate')
@@ -630,8 +683,10 @@ class Chz:
             upd = dict(status='APPLIED', applied_date=iso())
         elif t in CONNECT_TAP:
             for c in codes:
-                if strict and c['status'] != 'INTRODUCED':
-                    errors.append(f"{c['cis']}: кег не в обороте ({c['status']})")
+                if strict and c['status'] not in ('INTRODUCED', 'RETIRED'):
+                    errors.append(f"{c['cis']}: кег должен быть в статусе INTRODUCED или RETIRED ({c['status']})")
+                if c['parent'] and not (errors and strict):
+                    self.auto_disaggregate(c['parent'], doc_id)
                 extra = json.loads(c['extra'] or '{}')
                 extra['connectDate'] = iso()
                 self.s.update_code(c['cis'], extra=json.dumps(extra))
@@ -688,13 +743,23 @@ class Chz:
             c_new = self.lookup(new, inn)
             if not c_new:
                 errors.append(f'{new}: новый код не найден (закажите коды в СУЗ со способом «Перемаркировка»)')
-            elif strict and c_new['status'] not in ('EMITTED', 'APPLIED'):
-                errors.append(f"{new}: новый код в статусе {c_new['status']}")
+            elif strict and c_new['status'] != 'APPLIED':
+                errors.append(f"{new}: новый код должен быть в статусе APPLIED (отчёт о нанесении), "
+                              f"сейчас {c_new['status']}")
+            elif strict and json.loads(c_new['extra'] or '{}').get('emissionType', 'REMARK') not in ('REMARK', 'REAPPLY'):
+                errors.append(f"{new}: тип эмиссии нового кода должен быть REMARK или REAPPLY")
             c_old = self.s.find_code(old) if old else None
+            if c_old and strict and c_old['status'] not in ('INTRODUCED', 'RETIRED'):
+                errors.append(f"{old}: предыдущий код должен быть INTRODUCED или RETIRED, сейчас {c_old['status']}")
+            if c_old and strict and c_old['owner_inn'] and c_old['owner_inn'] != inn:
+                errors.append(f"{old}: отправитель {inn} не собственник предыдущего кода ({c_old['owner_inn']})")
             if errors and strict:
                 continue
             if c_old:
-                self.s.update_code(c_old['cis'], status='RETIRED', status_ex='REMARK_RETIRED', last_doc=doc_id)
+                if c_old['parent']:
+                    self.auto_disaggregate(c_old['parent'], doc_id)
+                # справочник «Особые состояния»: REMARK_RETIRED (Перемаркирован) — при статусе WRITTEN_OFF
+                self.s.update_code(c_old['cis'], status='WRITTEN_OFF', status_ex='REMARK_RETIRED', last_doc=doc_id)
             if c_new:
                 self.s.update_code(c_new['cis'], status='INTRODUCED', status_ex=None, owner_inn=inn,
                                    introduced_date=iso(), last_doc=doc_id,
@@ -749,6 +814,17 @@ class Chz:
                 if pc and pc['status'] != 'APPLIED':
                     errors.append(f"{parent}: набор должен быть в статусе APPLIED (отчёт о нанесении), "
                                   f"сейчас {pc['status']}")
+            elif t not in ATK and self.s.setting('strict'):
+                # формирование упаковки: статусы вложений идентичны (APPLIED или INTRODUCED); КИГУ — APPLIED
+                sts = {c['status'] for c in found}
+                if len(sts) > 1 or not sts <= {'APPLIED', 'INTRODUCED'}:
+                    errors.append(f"{parent}: вложения упаковки должны быть в одинаковом статусе APPLIED или "
+                                  f"INTRODUCED, сейчас: {', '.join(sorted(sts))}")
+                if pc and pc['package_type'] in ('LEVEL1', 'GROUP') and pc['status'] != 'APPLIED':
+                    errors.append(f"{parent}: КИГУ должен быть в статусе APPLIED, сейчас {pc['status']}")
+                for c in found:
+                    if c['status'] == 'APPLIED' and c['owner_inn'] and c['owner_inn'] != inn:
+                        errors.append(f"{c['cis']}: отправитель {inn} не собственник кода ({c['owner_inn']})")
             if errors and self.s.setting('strict'):
                 continue
             if t in ATK:
@@ -767,8 +843,10 @@ class Chz:
             for c in found:
                 self.s.update_code(c['cis'], parent=parent, last_doc=doc_id,
                                    **({'owner_inn': inn, 'status_ex': None} if is_set else {}))
-            if is_set and found and all(c['status'] == 'INTRODUCED' for c in found):
-                # набор из вложений «В обороте» ГИС МТ вводит в оборот автоматически
+            pc2 = self.s.find_code(parent) if parent else None
+            if (is_set or (pc2 and pc2['package_type'] in ('LEVEL1', 'GROUP'))) and found \
+                    and all(c['status'] == 'INTRODUCED' for c in found) and pc2['status'] == 'APPLIED':
+                # набор / КИГУ из вложений «В обороте» переходит в оборот автоматически
                 self.s.update_code(parent, status='INTRODUCED', status_ex=None, owner_inn=inn,
                                    introduced_date=iso(), last_doc=doc_id)
             u['_parent'] = parent
@@ -786,8 +864,11 @@ class Chz:
             if not c:
                 errors.append(f'{p}: упаковка не найдена')
                 continue
-            self.s.x('UPDATE codes SET parent=NULL, last_doc=? WHERE parent=?', doc_id, c['cis'])
-            self.s.update_code(c['cis'], status='DISAGGREGATED', last_doc=doc_id)
+            if self.s.setting('strict') and c['status'] not in ('APPLIED', 'INTRODUCED'):
+                errors.append(f"{p}: расформировать можно агрегат в статусе APPLIED или INTRODUCED, сейчас {c['status']}")
+                continue
+            self.s.x('UPDATE codes SET parent=NULL, status_ex=NULL, last_doc=? WHERE parent=?', doc_id, c['cis'])
+            self.s.update_code(c['cis'], status=disagg_status(c['pg']), status_ex=None, last_doc=doc_id)
         return errors if self.s.setting('strict') else []
 
     def doc_view(self, d, body=False, for_inn=None):
@@ -2024,7 +2105,8 @@ def ui_codes_status(h, chz, data=None, **k):
     """Массовая смена статуса: {cises: [...], status}. Даты нанесения и ввода заполняются, если пусты."""
     d = data or {}
     status = d.get('status')
-    if status not in ('EMITTED', 'APPLIED', 'INTRODUCED', 'RETIRED', 'WRITTEN_OFF', 'DISAGGREGATED'):
+    if status not in ('EMITTED', 'APPLIED', 'INTRODUCED', 'RETIRED', 'WRITTEN_OFF', 'DISAGGREGATION',
+                      'DISAGGREGATED'):
         raise err(400, f'Недопустимый статус: {status}')
     n = 0
     for cis in d.get('cises') or []:
