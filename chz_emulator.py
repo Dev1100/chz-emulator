@@ -15,7 +15,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit, parse_qs, unquote
 
 HERE = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))   # ресурсы: ui.html, расширение
-APP_DIR = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else HERE   # данные — рядом с exe
+APP_DIR = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else HERE
+# данные (база, сертификаты, журнал) — в профиле пользователя, а не рядом с exe: новый exe в другой папке
+# видит те же коды и тот же корневой сертификат; CHZ_EMULATOR_DATA — свой каталог
+DATA_DIR = os.environ.get('CHZ_EMULATOR_DATA') or (
+    os.path.join(os.environ['LOCALAPPDATA'], 'chz-emulator', 'data') if os.environ.get('LOCALAPPDATA')
+    else os.path.join(APP_DIR, 'data'))
+LEGACY_DATA_DIR = os.path.join(APP_DIR, 'data')   # где данные лежали до версии с DATA_DIR
 NK_PROD = 'xn--80aqu.xn----7sbabas4ajkhfocclk9d3cvfsa.xn--p1ai'   # апи.национальный-каталог.рф
 EMULATED = re.compile(r'(^|\.)(crpt\.ru|crptech\.ru|crpt\.tech|xn--80aqu\.xn----7sbabas4ajkhfocclk9d3cvfsa\.xn--p1ai'
                       r'|апи\.национальный-каталог\.рф)$', re.I)
@@ -35,13 +41,15 @@ DEFAULT_SETTINGS = {
     'token_ttl_hours': 10,
     'nk_placeholder': False,           # GTIN не из Нац. каталога: False — «не найден» как в ЧЗ, True — заглушка
     'suz_require_nk': False,           # заказ СУЗ на GTIN без опубликованной карточки НК отклоняется
+    'short_codes': False,              # группы с двумя структурами кода (косметика и бытовая химия): короткая 6+93
 }
 
 # Шаблоны кодов маркировки по товарным группам: длина серийного, хвосты (AI, длина)
 TEMPLATES = {   # сверено с разбором кодов КА 2.5.27.93 по всем видам продукции (stand/13_tpl_sweep.json)
     'shoes': (13, [('91', 4), ('92', 88)]),
     'milk': (6, [('93', 4)]), 'petfood': (6, [('93', 4)]), 'seafood': (6, [('93', 4)]),
-    'chemistry': (6, [('93', 4)]), 'cosmetics': (6, [('93', 4)]),           # «Парфюмерия» в КА — группа chemistry
+    # косметика и бытовая химия: длинная структура ЧЗ (рекомендуемая), короткая — TEMPLATES_SHORT
+    'chemistry': (13, [('91', 4), ('92', 44)]), 'cosmetics': (13, [('91', 4), ('92', 44)]),
     'beer': (7, [('93', 4)]), 'nabeer': (7, [('93', 4)]), 'otp': (7, [('93', 4)]), 'ncp': (7, [('93', 4)]),
     'water': (13, [('93', 4)]), 'softdrinks': (13, [('93', 4)]), 'bio': (13, [('93', 4)]),
     'antiseptic': (13, [('93', 4)]), 'grocery': (13, [('93', 4)]),
@@ -51,6 +59,8 @@ TEMPLATES = {   # сверено с разбором кодов КА 2.5.27.93 �
     'sweets': (13, [('93', 4)]), 'tea_coffee': (13, [('93', 4)]),
 }
 DEFAULT_TEMPLATE = (13, [('91', 4), ('92', 44)])
+# короткая структура для групп, где ЧЗ допускает обе (настройка short_codes)
+TEMPLATES_SHORT = {'chemistry': (6, [('93', 4)]), 'cosmetics': (6, [('93', 4)])}
 PG_IDS = {'lp': 1, 'shoes': 2, 'tobacco': 3, 'perfumery': 4, 'tires': 5, 'electronics': 6,
           'pharma': 7, 'milk': 8, 'bicycle': 9, 'wheelchairs': 10, 'otp': 12, 'water': 13,
           'furs': 14, 'beer': 15, 'ncp': 16, 'bio': 17, 'antiseptic': 19, 'petfood': 20,
@@ -153,9 +163,14 @@ def make_sscc():
     return '00' + body + gtin_check(body)
 
 
-def make_code(gtin, pg):
+def code_template(pg, short=False):
+    """(длина серийного, хвосты) для товарной группы; short — короткая структура, если она у группы есть."""
+    return (short and TEMPLATES_SHORT.get(pg)) or TEMPLATES.get(pg, DEFAULT_TEMPLATE)
+
+
+def make_code(gtin, pg, short=False):
     """Полный код с криптохвостом (через GS) и его «короткая» форма cis = 01+GTIN+21+серийный."""
-    serial_len, tails = TEMPLATES.get(pg, DEFAULT_TEMPLATE)
+    serial_len, tails = code_template(pg, short)
     cis = '01' + gtin + '21' + rnd(serial_len)
     full = cis + ''.join(GS + ai + rnd(n) for ai, n in tails)
     return cis, full
@@ -529,11 +544,14 @@ class Chz:
         upd = {}
         if t in INTRODUCE:
             for c in codes:
-                if strict and c['status'] not in ('EMITTED', 'APPLIED', 'INTRODUCED_RETURNED', 'RETIRED', 'WRITTEN_OFF') \
-                        and not (t == 'LP_RETURN' and c['status'] == 'RETIRED'):
+                # True API: во всех видах ввода в оборот КИ в статусе «APPLIED» («Нанесён», после отчёта
+                # о нанесении); «EMITTED» — отказ, как в ГИС МТ. Возврат в оборот — из «RETIRED»
+                if strict and t == 'LP_RETURN' and c['status'] != 'RETIRED':
                     errors.append(f"{c['cis']}: недопустимый статус {c['status']} для {t}")
-                if strict and t != 'LP_RETURN' and c['status'] in ('RETIRED', 'WRITTEN_OFF'):
-                    errors.append(f"{c['cis']}: код выбыл ({c['status']})")
+                elif strict and t != 'LP_RETURN' and c['status'] != 'APPLIED':
+                    errors.append(f"{c['cis']}: недопустимый статус {c['status']} для {t}: "
+                                  + ('нужен отчёт о нанесении (статус «APPLIED»)' if c['status'] == 'EMITTED'
+                                     else 'требуется статус «APPLIED»'))
             upd = dict(status='INTRODUCED', status_ex=None, owner_inn=sender, introduced_date=iso())
             pd = self.first(content, 'production_date', 'productionDate')
             if pd:
@@ -784,12 +802,13 @@ class Chz:
         body = json.loads(o['body'])
         serials = next((p.get('_serials') or [] for p in body.get('products', []) if p.get('gtin') == gtin), [])
         rows, fulls = [], []
+        short = self.s.setting('short_codes')
         for i in range(qty):
             if serials and b['issued'] + i < len(serials):
                 cis = '01' + gtin + '21' + serials[b['issued'] + i]
-                full = cis + ''.join(GS + ai + rnd(n) for ai, n in TEMPLATES.get(o['pg'], DEFAULT_TEMPLATE)[1])
+                full = cis + ''.join(GS + ai + rnd(n) for ai, n in code_template(o['pg'], short)[1])
             else:
-                cis, full = make_code(gtin, o['pg'])
+                cis, full = make_code(gtin, o['pg'], short)
             fulls.append(full)
             rows.append((cis, full, gtin, o['pg'], 'EMITTED', None, o['inn'], o['inn'], 'UNIT', None, iso(),
                          None, None, None, None, None, o['id'], json.dumps({'emissionType': emission_type(body)})))
@@ -1894,8 +1913,9 @@ def ui_codes(h, chz, data=None, **k):
     if not chz.s.nk_card(gtin):
         chz.s.nk_put(gtin, d.get('name'), pg, d.get('producer_inn') or owner, d.get('tnved') or '', d.get('brand') or '')
     rows, out = [], []
+    short = d['short'] if 'short' in d else chz.s.setting('short_codes')
     for _ in range(int(d.get('count') or 1)):
-        cis, full = make_code(gtin, pg)
+        cis, full = make_code(gtin, pg, short)
         out.append(full)
         rows.append((cis, full, gtin, pg, status, None, owner, d.get('producer_inn') or owner, 'UNIT', None,
                      iso(), iso() if status != 'EMITTED' else None, iso() if status in ('INTRODUCED', 'RETIRED') else None,
@@ -1922,6 +1942,28 @@ def ui_code_edit(h, chz, data=None, **k):
     if d:
         chz.s.update_code(cis, **d)
     ok(chz.s.one('SELECT * FROM codes WHERE cis=?', cis))
+
+
+@route('POST', r'_emu/codes/status', admin=True)
+def ui_codes_status(h, chz, data=None, **k):
+    """Массовая смена статуса: {cises: [...], status}. Даты нанесения и ввода заполняются, если пусты."""
+    d = data or {}
+    status = d.get('status')
+    if status not in ('EMITTED', 'APPLIED', 'INTRODUCED', 'RETIRED', 'WRITTEN_OFF', 'DISAGGREGATED'):
+        raise err(400, f'Недопустимый статус: {status}')
+    n = 0
+    for cis in d.get('cises') or []:
+        c = chz.s.one('SELECT * FROM codes WHERE cis=?', cis)
+        if not c:
+            continue
+        upd = {'status': status, 'status_ex': None}
+        if status in ('APPLIED', 'INTRODUCED', 'RETIRED') and not c['applied_date']:
+            upd['applied_date'] = iso()
+        if status in ('INTRODUCED', 'RETIRED') and not c['introduced_date']:
+            upd['introduced_date'] = iso()
+        chz.s.update_code(cis, **upd)
+        n += 1
+    ok({'updated': n, 'status': status})
 
 
 @route('POST', r'_emu/incoming', admin=True)
@@ -1979,7 +2021,11 @@ SCENARIO_STEPS = 13
 def ui_reset(h, chz, **k):
     for t in ('codes', 'docs', 'orders', 'buffers', 'blocks', 'reports', 'tokens', 'mods'):
         chz.s.x(f'DELETE FROM {t}')
-    chz.log.clear()
+    with chz.log_lock:
+        chz.log.clear()
+        path = os.path.join(chz.logdir, 'requests.log')
+        if os.path.exists(path):   # старый журнал — в архив, иначе он вернётся после перезапуска
+            os.replace(path, os.path.join(chz.logdir, time.strftime('requests-%Y%m%d-%H%M%S.log')))
     ok({'reset': True})
 
 
@@ -2076,6 +2122,32 @@ def _certs_openssl(certdir, ca_key, ca_crt, key, crt):
     return crt, key
 
 
+def migrate_legacy_data(data_dir):
+    """Первый запуск с DATA_DIR: копируем data рядом с exe (база, сертификаты, журнал), чтобы не потерять
+    коды и не получить новый, недоверенный корневой сертификат. Возвращает откуда скопировано или None."""
+    if os.path.exists(os.path.join(data_dir, 'chz.db')) or os.path.exists(os.path.join(data_dir, 'certs', 'ca.crt')):
+        return None
+    src = LEGACY_DATA_DIR
+    if os.path.normcase(os.path.abspath(src)) == os.path.normcase(os.path.abspath(data_dir))             or not os.path.exists(os.path.join(src, 'certs', 'ca.crt')):
+        return None
+    shutil.copytree(src, data_dir, dirs_exist_ok=True)
+    return src
+
+
+def load_log(chz, keep=500):
+    """Журнал запросов веб-интерфейса — из файла, чтобы он переживал перезапуск."""
+    try:
+        with open(os.path.join(chz.logdir, 'requests.log'), encoding='utf-8') as f:
+            lines = f.readlines()[-keep:]
+    except OSError:
+        return
+    for line in lines:
+        try:
+            chz.log.append(json.loads(line))
+        except ValueError:
+            pass
+
+
 def make_server(port, data_dir, verbose=False, bind='127.0.0.1'):
     certdir = os.path.join(data_dir, 'certs')
     crt, key = ensure_certs(certdir)
@@ -2085,6 +2157,7 @@ def make_server(port, data_dir, verbose=False, bind='127.0.0.1'):
     chz = Chz(Store(os.path.join(data_dir, 'chz.db')))
     chz.logdir = os.path.join(data_dir, 'logs')
     os.makedirs(chz.logdir, exist_ok=True)
+    load_log(chz)
     srv = ThreadingHTTPServer((bind, port), Handler)
     srv.daemon_threads = True
     srv.tls, srv.chz, srv.verbose, srv.certdir = tls, chz, verbose, certdir
@@ -2095,10 +2168,11 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--port', type=int, default=3128)
     ap.add_argument('--bind', default='127.0.0.1', help='0.0.0.0 — пустить 1С с других машин')
-    ap.add_argument('--data', default=os.path.join(APP_DIR, 'data'))
+    ap.add_argument('--data', default=DATA_DIR)
     ap.add_argument('-v', '--verbose', action='store_true')
     ap.add_argument('--no-browser', action='store_true', help='не открывать веб-интерфейс')
     a = ap.parse_args()
+    migrated = migrate_legacy_data(a.data)
     try:
         srv = make_server(a.port, a.data, a.verbose, a.bind)
     except OSError as e:
@@ -2108,6 +2182,8 @@ def main():
         return
     url = f'http://127.0.0.1:{a.port}/'
     print(f'Эмулятор ЧЗ: прокси для 1С {a.bind}:{a.port}, веб-интерфейс {url}  (данные: {a.data})')
+    if migrated:
+        print(f'Данные перенесены из {migrated} (старая папка не тронута)')
     print(f'Корневой сертификат: {os.path.join(srv.certdir, "ca.crt")}')
     print('Окно не закрывайте, пока работаете с 1С. Остановка — Ctrl+C.')
     if not a.no_browser:
