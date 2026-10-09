@@ -41,15 +41,13 @@ DEFAULT_SETTINGS = {
     'token_ttl_hours': 10,
     'nk_placeholder': False,           # GTIN не из Нац. каталога: False — «не найден» как в ЧЗ, True — заглушка
     'suz_require_nk': False,           # заказ СУЗ на GTIN без опубликованной карточки НК отклоняется
-    'short_codes': False,              # группы с двумя структурами кода (косметика и бытовая химия): короткая 6+93
+    'short_codes': False,              # без templateId в заказе — «Укороченный КМ» (93) вместо стандартного (91+92)
 }
 
 # Шаблоны кодов маркировки по товарным группам: длина серийного, хвосты (AI, длина)
-TEMPLATES = {   # сверено с разбором кодов КА 2.5.27.93 по всем видам продукции (stand/13_tpl_sweep.json)
+TEMPLATES = {   # запасной вариант, если группы нет в SUZ_TEMPLATES (табак, ncp и т. п.)
     'shoes': (13, [('91', 4), ('92', 88)]),
     'milk': (6, [('93', 4)]), 'petfood': (6, [('93', 4)]), 'seafood': (6, [('93', 4)]),
-    # косметика и бытовая химия: длинная структура ЧЗ (рекомендуемая), короткая — TEMPLATES_SHORT
-    'chemistry': (13, [('91', 4), ('92', 44)]), 'cosmetics': (13, [('91', 4), ('92', 44)]),
     'beer': (7, [('93', 4)]), 'nabeer': (7, [('93', 4)]), 'otp': (7, [('93', 4)]), 'ncp': (7, [('93', 4)]),
     'water': (13, [('93', 4)]), 'softdrinks': (13, [('93', 4)]), 'bio': (13, [('93', 4)]),
     'antiseptic': (13, [('93', 4)]), 'grocery': (13, [('93', 4)]),
@@ -59,8 +57,51 @@ TEMPLATES = {   # сверено с разбором кодов КА 2.5.27.93 �
     'sweets': (13, [('93', 4)]), 'tea_coffee': (13, [('93', 4)]),
 }
 DEFAULT_TEMPLATE = (13, [('91', 4), ('92', 44)])
-# короткая структура для групп, где ЧЗ допускает обе (настройка short_codes)
-TEMPLATES_SHORT = {'chemistry': (6, [('93', 4)]), 'cosmetics': (6, [('93', 4)])}
+# Шаблоны кодов СУЗ (единица товара) из классификатора КА 2.5.27 (общий макет
+# КлассификаторыВидовПродукцииИС, SUZTemplates.json): формат кода выбирается по templateId заказа,
+# без него — шаблон группы «по умолчанию»; настройка short_codes — «Укороченный КМ», если он есть.
+# Хвост: S — 93(4), L44 — 91(4) + 92(44), L88 — 91(4) + 92(88). TEMPLATES — для групп, которых здесь нет.
+SUZ_TEMPLATES = {   # templateId СУЗ: (товарная группа, длина серийного, хвост, по умолчанию, укороченный)
+    25: ('antiseptic', 13, 'S', False, True), 31: ('antiseptic', 13, 'L44', True, False),
+    60: ('autofluids', 13, 'S', False, True), 61: ('autofluids', 13, 'L44', True, False),
+    18: ('beer', 7, 'S', False, False), 11: ('bicycle', 13, 'L44', False, False),
+    23: ('bio', 13, 'S', False, True), 30: ('bio', 13, 'L44', True, False),
+    52: ('books', 13, 'L44', False, False), 62: ('cableraw', 13, 'S', False, True),
+    63: ('cableraw', 13, 'L44', True, False), 68: ('carparts', 6, 'S', False, True),
+    69: ('carparts', 13, 'L44', True, False), 46: ('chemistry', 6, 'L44', True, False),
+    47: ('chemistry', 6, 'S', False, True), 48: ('conserve', 6, 'L44', True, False),
+    49: ('conserve', 6, 'S', False, True), 53: ('construction', 13, 'S', False, True),
+    54: ('construction', 13, 'L44', True, False), 8: ('electronics', 20, 'L44', False, False),
+    81: ('fertilizers', 6, 'S', False, True), 82: ('fertilizers', 13, 'L44', True, False),
+    55: ('fire', 6, 'S', False, True), 56: ('fire', 13, 'L44', True, False),
+    83: ('frozen', 6, 'S', False, True), 84: ('frozen', 13, 'L44', True, False),
+    85: ('furslp', 13, 'L44', False, False), 72: ('gadgets', 20, 'S', False, True),
+    73: ('gadgets', 20, 'L44', True, False), 42: ('grocery', 13, 'L44', True, False),
+    43: ('grocery', 13, 'S', False, True), 57: ('heater', 6, 'S', False, True),
+    58: ('heater', 6, 'L44', True, False), 77: ('homeware', 6, 'S', False, True),
+    78: ('homeware', 13, 'L44', True, False), 79: ('industrial', 6, 'S', False, True),
+    80: ('industrial', 13, 'L44', True, False), 10: ('lp', 13, 'L44', True, False),
+    32: ('meat', 6, 'S', False, True), 74: ('meat', 13, 'L44', True, False), 20: ('milk', 6, 'S', False, False),
+    28: ('nabeer', 7, 'S', False, False), 70: ('nicotindev', 13, 'S', False, True),
+    71: ('nicotindev', 13, 'L44', True, False), 44: ('opticfiber', 13, 'L44', True, False),
+    45: ('opticfiber', 13, 'S', False, True), 14: ('otp', 7, 'S', True, False),
+    9: ('perfumery', 13, 'L44', False, False), 26: ('petfood', 6, 'L44', True, False),
+    41: ('petfood', 6, 'S', False, True), 5: ('pharma', 13, 'L44', False, False),
+    64: ('polymer', 6, 'S', False, True), 65: ('polymer', 6, 'L44', True, False),
+    86: ('pyrotechnics', 6, 'S', False, True), 87: ('pyrotechnics', 13, 'L44', True, False),
+    36: ('radio', 20, 'L44', True, False), 37: ('radio', 20, 'S', False, True),
+    27: ('seafood', 6, 'L44', True, False), 38: ('seafood', 6, 'S', False, True),
+    1: ('shoes', 13, 'L88', False, False), 29: ('softdrinks', 13, 'S', False, False),
+    66: ('sweets', 6, 'S', False, True), 67: ('sweets', 13, 'L44', True, False),
+    7: ('tires', 13, 'L44', False, False), 39: ('titan', 13, 'S', False, False),
+    34: ('toys', 13, 'L44', True, False), 59: ('toys', 6, 'S', False, True),
+    40: ('vegetableoil', 13, 'S', False, True), 51: ('vegetableoil', 13, 'L44', True, False),
+    75: ('vetbio', 6, 'S', False, True), 76: ('vetbio', 13, 'L44', True, False),
+    50: ('vetpharma', 13, 'L44', False, False), 16: ('water', 13, 'S', False, False),
+    12: ('wheelchairs', 13, 'L44', False, False),
+}
+SUZ_TAILS = {'S': [('93', 4)], 'L44': [('91', 4), ('92', 44)], 'L88': [('91', 4), ('92', 88)]}
+PG_ALIASES = {'cosmetics': 'chemistry'}
 PG_IDS = {'lp': 1, 'shoes': 2, 'tobacco': 3, 'perfumery': 4, 'tires': 5, 'electronics': 6,
           'pharma': 7, 'milk': 8, 'bicycle': 9, 'wheelchairs': 10, 'otp': 12, 'water': 13,
           'furs': 14, 'beer': 15, 'ncp': 16, 'bio': 17, 'antiseptic': 19, 'petfood': 20,
@@ -163,14 +204,24 @@ def make_sscc():
     return '00' + body + gtin_check(body)
 
 
-def code_template(pg, short=False):
-    """(длина серийного, хвосты) для товарной группы; short — короткая структура, если она у группы есть."""
-    return (short and TEMPLATES_SHORT.get(pg)) or TEMPLATES.get(pg, DEFAULT_TEMPLATE)
+def code_template(pg, short=False, template_id=None):
+    """(длина серийного, хвосты): по templateId СУЗ, иначе шаблон группы по умолчанию (short — укороченный)."""
+    try:
+        t = SUZ_TEMPLATES.get(int(template_id)) if template_id not in (None, '') else None
+    except (TypeError, ValueError):
+        t = None
+    if not t:
+        group = [v for v in SUZ_TEMPLATES.values() if v[0] == PG_ALIASES.get(pg, pg)]
+        t = ((short and next((v for v in group if v[4]), None)) or next((v for v in group if v[3]), None)
+             or next((v for v in group if not v[4]), None) or (group[0] if group else None))
+    if t:
+        return t[1], SUZ_TAILS[t[2]]
+    return TEMPLATES.get(pg, DEFAULT_TEMPLATE)
 
 
-def make_code(gtin, pg, short=False):
+def make_code(gtin, pg, short=False, template_id=None):
     """Полный код с криптохвостом (через GS) и его «короткая» форма cis = 01+GTIN+21+серийный."""
-    serial_len, tails = code_template(pg, short)
+    serial_len, tails = code_template(pg, short, template_id)
     cis = '01' + gtin + '21' + rnd(serial_len)
     full = cis + ''.join(GS + ai + rnd(n) for ai, n in tails)
     return cis, full
@@ -800,15 +851,17 @@ class Chz:
         if qty <= 0:
             return None, 'Коды в буфере закончились (EXHAUSTED)'
         body = json.loads(o['body'])
-        serials = next((p.get('_serials') or [] for p in body.get('products', []) if p.get('gtin') == gtin), [])
+        prod = next((p for p in body.get('products', []) if p.get('gtin') == gtin), {})
+        serials = prod.get('_serials') or []
+        tpl = prod.get('templateId')
         rows, fulls = [], []
         short = self.s.setting('short_codes')
         for i in range(qty):
             if serials and b['issued'] + i < len(serials):
                 cis = '01' + gtin + '21' + serials[b['issued'] + i]
-                full = cis + ''.join(GS + ai + rnd(n) for ai, n in code_template(o['pg'], short)[1])
+                full = cis + ''.join(GS + ai + rnd(n) for ai, n in code_template(o['pg'], short, tpl)[1])
             else:
-                cis, full = make_code(gtin, o['pg'], short)
+                cis, full = make_code(gtin, o['pg'], short, tpl)
             fulls.append(full)
             rows.append((cis, full, gtin, o['pg'], 'EMITTED', None, o['inn'], o['inn'], 'UNIT', None, iso(),
                          None, None, None, None, None, o['id'], json.dumps({'emissionType': emission_type(body)})))
@@ -1915,7 +1968,7 @@ def ui_codes(h, chz, data=None, **k):
     rows, out = [], []
     short = d['short'] if 'short' in d else chz.s.setting('short_codes')
     for _ in range(int(d.get('count') or 1)):
-        cis, full = make_code(gtin, pg, short)
+        cis, full = make_code(gtin, pg, short, d.get('template_id'))
         out.append(full)
         rows.append((cis, full, gtin, pg, status, None, owner, d.get('producer_inn') or owner, 'UNIT', None,
                      iso(), iso() if status != 'EMITTED' else None, iso() if status in ('INTRODUCED', 'RETIRED') else None,
