@@ -12,13 +12,13 @@ subprocess.run([sys.executable, '-m', 'PyInstaller', '--noconfirm', '--onefile',
                 '--add-data', f'../epf/ЭЧЗ_ВыгрузкаВНК.epf{os.pathsep}epf',
                 '--hidden-import', 'scenario', '--paths', '.', 'chz_emulator.py'], check=True)
 os.makedirs('release', exist_ok=True)
-files = {'chz-emulator.exe': 'build/dist/chz-emulator.exe', 'ИНСТРУКЦИЯ.md': 'ИНСТРУКЦИЯ.md',
+files = {'chz-emulator.exe': 'build/dist/chz-emulator.exe', 'ИНСТРУКЦИЯ.md': 'ИНСТРУКЦИЯ.md', 'ИНСТРУКЦИЯ_НЕ_КА.md': 'ИНСТРУКЦИЯ_НЕ_КА.md',
          'ЧЗ_БезПодписи.cfe': CFE, 'CHZ_BezPodpisi.cfe': CFE,
          'ЭЧЗ_НастройкаПодключения.epf': 'epf/ЭЧЗ_НастройкаПодключения.epf', 'CHZ_Setup.epf': 'epf/ЭЧЗ_НастройкаПодключения.epf',
          'ЭЧЗ_ВыгрузкаВНК.epf': 'epf/ЭЧЗ_ВыгрузкаВНК.epf', 'CHZ_ExportNK.epf': 'epf/ЭЧЗ_ВыгрузкаВНК.epf'}   # латинская копия — для релиза GitHub
 for name, src in files.items():
     shutil.copyfile(src, os.path.join('release', name))
 with zipfile.ZipFile('release/chz-emulator.zip', 'w', zipfile.ZIP_DEFLATED) as z:
-    for name in ('chz-emulator.exe', 'ИНСТРУКЦИЯ.md', 'ЧЗ_БезПодписи.cfe', 'ЭЧЗ_НастройкаПодключения.epf', 'ЭЧЗ_ВыгрузкаВНК.epf'):
+    for name in ('chz-emulator.exe', 'ИНСТРУКЦИЯ.md', 'ИНСТРУКЦИЯ_НЕ_КА.md', 'ЧЗ_БезПодписи.cfe', 'ЭЧЗ_НастройкаПодключения.epf', 'ЭЧЗ_ВыгрузкаВНК.epf'):
         z.write(os.path.join('release', name), name)
 print('Готово: release/')
