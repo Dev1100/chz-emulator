@@ -735,6 +735,20 @@ class Chz:
                     errors.append(f"{k}: уже агрегирован в {c['parent']}")
                 else:
                     found.append(c)
+            is_set = t.startswith('SETS_AGGREGATION')
+            pc = self.s.find_code(parent) if parent else None
+            if pc:
+                parent = pc['cis']           # КИ набора/упаковки мог прийти с криптохвостом
+            if is_set and self.s.setting('strict'):
+                # True API, «Особенности формирования набора»: вложения в одном статусе APPLIED или
+                # INTRODUCED, набор (КИН, выпущенный СУЗ) — в статусе APPLIED
+                sts = {c['status'] for c in found}
+                if len(sts) > 1 or not sts <= {'APPLIED', 'INTRODUCED'}:
+                    errors.append(f"{parent}: вложения набора должны быть в одинаковом статусе APPLIED или "
+                                  f"INTRODUCED, сейчас: {', '.join(sorted(sts))}")
+                if pc and pc['status'] != 'APPLIED':
+                    errors.append(f"{parent}: набор должен быть в статусе APPLIED (отчёт о нанесении), "
+                                  f"сейчас {pc['status']}")
             if errors and self.s.setting('strict'):
                 continue
             if t in ATK:
@@ -751,7 +765,12 @@ class Chz:
                                    introduced_date=iso() if st == 'INTRODUCED' else None, production_date=None,
                                    expiration_date=None, last_doc=doc_id, order_id=None, extra=None)
             for c in found:
-                self.s.update_code(c['cis'], parent=parent, last_doc=doc_id)
+                self.s.update_code(c['cis'], parent=parent, last_doc=doc_id,
+                                   **({'owner_inn': inn, 'status_ex': None} if is_set else {}))
+            if is_set and found and all(c['status'] == 'INTRODUCED' for c in found):
+                # набор из вложений «В обороте» ГИС МТ вводит в оборот автоматически
+                self.s.update_code(parent, status='INTRODUCED', status_ex=None, owner_inn=inn,
+                                   introduced_date=iso(), last_doc=doc_id)
             u['_parent'] = parent
         if t in ATK:
             content['atk'] = [u.get('_parent') for u in units]
