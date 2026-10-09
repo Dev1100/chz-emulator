@@ -431,7 +431,7 @@ class Chz:
             'status': c['status'], 'statusEx': c['status_ex'] or None,
             'packageType': c['package_type'] or 'UNIT',
             'generalPackageType': {'UNIT': 'UNIT', 'LEVEL1': 'GROUP', 'LEVEL2': 'BOX', 'BOX': 'BOX',
-                                   'ATK': 'ATK', 'SET': 'SET', 'GROUP': 'GROUP'}.get(c['package_type'] or 'UNIT', 'UNIT'),
+                                   'ATK': 'ATK', 'SET': 'SET', 'BUNDLE': 'BUNDLE', 'GROUP': 'GROUP'}.get(c['package_type'] or 'UNIT', 'UNIT'),
             'ownerInn': c['owner_inn'], 'ownerName': owner and owner['name'],
             'producerInn': c['producer_inn'], 'producerName': producer and producer['name'],
             'lastDocId': c['last_doc'], 'parent': c['parent'], 'markWithdraw': False,
@@ -854,6 +854,8 @@ class Chz:
         prod = next((p for p in body.get('products', []) if p.get('gtin') == gtin), {})
         serials = prod.get('_serials') or []
         tpl = prod.get('templateId')
+        # тип КИ из заказа (cisType) → тип упаковки кода: набор и комплект выпускаются своими КИ
+        ptype = {'GROUP': 'LEVEL1', 'SET': 'SET', 'BUNDLE': 'BUNDLE'}.get(prod.get('cisType'), 'UNIT')
         rows, fulls = [], []
         short = self.s.setting('short_codes')
         for i in range(qty):
@@ -863,7 +865,7 @@ class Chz:
             else:
                 cis, full = make_code(gtin, o['pg'], short, tpl)
             fulls.append(full)
-            rows.append((cis, full, gtin, o['pg'], 'EMITTED', None, o['inn'], o['inn'], 'UNIT', None, iso(),
+            rows.append((cis, full, gtin, o['pg'], 'EMITTED', None, o['inn'], o['inn'], ptype, None, iso(),
                          None, None, None, None, None, o['id'], json.dumps({'emissionType': emission_type(body)})))
         self.s.many('INSERT OR REPLACE INTO codes VALUES(' + ','.join('?' * 18) + ')', rows)
         block = str(uuid.uuid4())
@@ -1990,7 +1992,8 @@ def ui_codes(h, chz, data=None, **k):
 def ui_code_edit(h, chz, data=None, **k):
     d = dict(data or {})
     cis = d.pop('cis')
-    allowed = {'status', 'status_ex', 'owner_inn', 'parent', 'expiration_date', 'production_date', 'pg', 'gtin'}
+    allowed = {'status', 'status_ex', 'owner_inn', 'parent', 'expiration_date', 'production_date', 'pg', 'gtin',
+               'package_type'}
     d = {k2: (v or None) for k2, v in d.items() if k2 in allowed}
     if d:
         chz.s.update_code(cis, **d)
