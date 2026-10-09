@@ -25,6 +25,7 @@
 		</Properties>
 		<ChildObjects>
 			<Form>Форма</Form>
+			<Template>РасширениеБезПодписи</Template>
 		</ChildObjects>
 	</ExternalDataProcessor>
 </MetaDataObject>

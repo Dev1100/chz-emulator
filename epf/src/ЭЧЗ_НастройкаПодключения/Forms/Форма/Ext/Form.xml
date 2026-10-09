@@ -215,11 +215,53 @@
 				</UsualGroup>
 			</ChildItems>
 		</UsualGroup>
-		<UsualGroup name="ГруппаКнопки" id="50">
+		<UsualGroup name="ГруппаРасширение" id="50">
+			<Title>
+				<v8:item>
+					<v8:lang>ru</v8:lang>
+					<v8:content>Расширение «ЧЗ: без подписи» (если нет ЭП)</v8:content>
+				</v8:item>
+			</Title>
 			<Group>Horizontal</Group>
-			<ExtendedTooltip name="ГруппаКнопкиРасширеннаяПодсказка" id="51"/>
+			<ExtendedTooltip name="ГруппаРасширениеРасширеннаяПодсказка" id="51"/>
 			<ChildItems>
-				<Button name="Настроить" id="52">
+				<LabelDecoration name="ПояснениеРасширения" id="52">
+					<Title formatted="false">
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Подставляет подпись-заглушку при отправке документов и получении токенов. Работает только при включённом тестовом контуре ИС МП.</v8:content>
+						</v8:item>
+					</Title>
+					<ContextMenu name="ПояснениеРасширенияКонтекстноеМеню" id="53"/>
+					<ExtendedTooltip name="ПояснениеРасширенияРасширеннаяПодсказка" id="54"/>
+				</LabelDecoration>
+				<Button name="УстановитьРасширение" id="55">
+					<CommandName>Form.Command.УстановитьРасширение</CommandName>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Установить / обновить</v8:content>
+						</v8:item>
+					</Title>
+					<ExtendedTooltip name="УстановитьРасширениеРасширеннаяПодсказка" id="56"/>
+				</Button>
+				<Button name="УдалитьРасширение" id="57">
+					<CommandName>Form.Command.УдалитьРасширение</CommandName>
+					<Title>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Удалить</v8:content>
+						</v8:item>
+					</Title>
+					<ExtendedTooltip name="УдалитьРасширениеРасширеннаяПодсказка" id="58"/>
+				</Button>
+			</ChildItems>
+		</UsualGroup>
+		<UsualGroup name="ГруппаКнопки" id="59">
+			<Group>Horizontal</Group>
+			<ExtendedTooltip name="ГруппаКнопкиРасширеннаяПодсказка" id="60"/>
+			<ChildItems>
+				<Button name="Настроить" id="61">
 					<CommandName>Form.Command.Настроить</CommandName>
 					<Title>
 						<v8:item>
@@ -228,9 +270,9 @@
 						</v8:item>
 					</Title>
 					<DefaultButton>true</DefaultButton>
-					<ExtendedTooltip name="НастроитьРасширеннаяПодсказка" id="53"/>
+					<ExtendedTooltip name="НастроитьРасширеннаяПодсказка" id="62"/>
 				</Button>
-				<Button name="Проверить" id="54">
+				<Button name="Проверить" id="63">
 					<CommandName>Form.Command.Проверить</CommandName>
 					<Title>
 						<v8:item>
@@ -238,9 +280,9 @@
 							<v8:content>Проверить связь</v8:content>
 						</v8:item>
 					</Title>
-					<ExtendedTooltip name="ПроверитьРасширеннаяПодсказка" id="55"/>
+					<ExtendedTooltip name="ПроверитьРасширеннаяПодсказка" id="64"/>
 				</Button>
-				<Button name="ЗаполнитьТестовымиДанными" id="56">
+				<Button name="ЗаполнитьТестовымиДанными" id="65">
 					<CommandName>Form.Command.ЗаполнитьТестовымиДанными</CommandName>
 					<Title>
 						<v8:item>
@@ -248,9 +290,9 @@
 							<v8:content>Заполнить тестовыми данными</v8:content>
 						</v8:item>
 					</Title>
-					<ExtendedTooltip name="ЗаполнитьТестовымиДаннымиРасширеннаяПодсказка" id="57"/>
+					<ExtendedTooltip name="ЗаполнитьТестовымиДаннымиРасширеннаяПодсказка" id="66"/>
 				</Button>
-				<Button name="Отключить" id="58">
+				<Button name="Отключить" id="67">
 					<CommandName>Form.Command.Отключить</CommandName>
 					<Title>
 						<v8:item>
@@ -258,11 +300,11 @@
 							<v8:content>Отключить эмулятор</v8:content>
 						</v8:item>
 					</Title>
-					<ExtendedTooltip name="ОтключитьРасширеннаяПодсказка" id="59"/>
+					<ExtendedTooltip name="ОтключитьРасширеннаяПодсказка" id="68"/>
 				</Button>
 			</ChildItems>
 		</UsualGroup>
-		<InputField name="Протокол" id="60">
+		<InputField name="Протокол" id="69">
 			<DataPath>Протокол</DataPath>
 			<Title>
 				<v8:item>
@@ -275,28 +317,28 @@
 			<MultiLine>true</MultiLine>
 			<Height>10</Height>
 			<HorizontalStretch>true</HorizontalStretch>
-			<ContextMenu name="ПротоколКонтекстноеМеню" id="61"/>
-			<ExtendedTooltip name="ПротоколРасширеннаяПодсказка" id="62"/>
+			<ContextMenu name="ПротоколКонтекстноеМеню" id="70"/>
+			<ExtendedTooltip name="ПротоколРасширеннаяПодсказка" id="71"/>
 		</InputField>
 	</ChildItems>
 	<Attributes>
-		<Attribute name="Объект" id="63">
+		<Attribute name="Объект" id="72">
 			<Type>
 				<v8:Type>cfg:ExternalDataProcessorObject.ЭЧЗ_НастройкаПодключения</v8:Type>
 			</Type>
 			<MainAttribute>true</MainAttribute>
 		</Attribute>
-		<Attribute name="Организация" id="64">
+		<Attribute name="Организация" id="73">
 			<Type>
 				<v8:Type>cfg:CatalogRef.Организации</v8:Type>
 			</Type>
 		</Attribute>
-		<Attribute name="Подразделение" id="65">
+		<Attribute name="Подразделение" id="74">
 			<Type>
 				<v8:Type>cfg:CatalogRef.СтруктураПредприятия</v8:Type>
 			</Type>
 		</Attribute>
-		<Attribute name="ИНН" id="66">
+		<Attribute name="ИНН" id="75">
 			<Type>
 				<v8:Type>xs:string</v8:Type>
 				<v8:StringQualifiers>
@@ -305,7 +347,7 @@
 				</v8:StringQualifiers>
 			</Type>
 		</Attribute>
-		<Attribute name="АдресЭмулятора" id="67">
+		<Attribute name="АдресЭмулятора" id="76">
 			<Type>
 				<v8:Type>xs:string</v8:Type>
 				<v8:StringQualifiers>
@@ -314,7 +356,7 @@
 				</v8:StringQualifiers>
 			</Type>
 		</Attribute>
-		<Attribute name="ПортЭмулятора" id="68">
+		<Attribute name="ПортЭмулятора" id="77">
 			<Type>
 				<v8:Type>xs:decimal</v8:Type>
 				<v8:NumberQualifiers>
@@ -324,7 +366,7 @@
 				</v8:NumberQualifiers>
 			</Type>
 		</Attribute>
-		<Attribute name="ПроксиДля" id="69">
+		<Attribute name="ПроксиДля" id="78">
 			<Type>
 				<v8:Type>xs:string</v8:Type>
 				<v8:StringQualifiers>
@@ -333,27 +375,27 @@
 				</v8:StringQualifiers>
 			</Type>
 		</Attribute>
-		<Attribute name="ВключитьТестовыйКонтур" id="70">
+		<Attribute name="ВключитьТестовыйКонтур" id="79">
 			<Type>
 				<v8:Type>xs:boolean</v8:Type>
 			</Type>
 		</Attribute>
-		<Attribute name="ВключитьУчетИСМП" id="71">
+		<Attribute name="ВключитьУчетИСМП" id="80">
 			<Type>
 				<v8:Type>xs:boolean</v8:Type>
 			</Type>
 		</Attribute>
-		<Attribute name="ЗарегистрироватьВЭмуляторе" id="72">
+		<Attribute name="ЗарегистрироватьВЭмуляторе" id="81">
 			<Type>
 				<v8:Type>xs:boolean</v8:Type>
 			</Type>
 		</Attribute>
-		<Attribute name="НастроитьСУЗ" id="73">
+		<Attribute name="НастроитьСУЗ" id="82">
 			<Type>
 				<v8:Type>xs:boolean</v8:Type>
 			</Type>
 		</Attribute>
-		<Attribute name="АдресСУЗ" id="74">
+		<Attribute name="АдресСУЗ" id="83">
 			<Type>
 				<v8:Type>xs:string</v8:Type>
 				<v8:StringQualifiers>
@@ -362,7 +404,7 @@
 				</v8:StringQualifiers>
 			</Type>
 		</Attribute>
-		<Attribute name="ИдентификаторСУЗ" id="75">
+		<Attribute name="ИдентификаторСУЗ" id="84">
 			<Type>
 				<v8:Type>xs:string</v8:Type>
 				<v8:StringQualifiers>
@@ -371,7 +413,7 @@
 				</v8:StringQualifiers>
 			</Type>
 		</Attribute>
-		<Attribute name="Протокол" id="76">
+		<Attribute name="Протокол" id="85">
 			<Type>
 				<v8:Type>xs:string</v8:Type>
 				<v8:StringQualifiers>
@@ -382,17 +424,23 @@
 		</Attribute>
 	</Attributes>
 	<Commands>
-		<Command name="Настроить" id="77">
+		<Command name="Настроить" id="86">
 			<Action>НастроитьОбработка</Action>
 		</Command>
-		<Command name="Проверить" id="78">
+		<Command name="Проверить" id="87">
 			<Action>ПроверитьОбработка</Action>
 		</Command>
-		<Command name="Отключить" id="79">
+		<Command name="Отключить" id="88">
 			<Action>ОтключитьОбработка</Action>
 		</Command>
-		<Command name="ЗаполнитьТестовымиДанными" id="80">
+		<Command name="ЗаполнитьТестовымиДанными" id="89">
 			<Action>ЗаполнитьТестовымиДаннымиОбработка</Action>
+		</Command>
+		<Command name="УстановитьРасширение" id="90">
+			<Action>УстановитьРасширениеОбработка</Action>
+		</Command>
+		<Command name="УдалитьРасширение" id="91">
+			<Action>УдалитьРасширениеОбработка</Action>
 		</Command>
 	</Commands>
 </Form>
