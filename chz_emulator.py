@@ -38,6 +38,7 @@ DEFAULT_SETTINGS = {
     'reject_documents': False,         # все документы — CHECKED_NOT_OK (проверка ошибок в 1С)
     'reject_reason': 'Документ отклонён эмулятором (тест)',
     'auth_fail': False,                # simpleSignIn отвечает 401
+    'cises_fail': False,               # cises/info отвечает 503 (проверка обработки сбоя сервиса в 1С)
     'token_ttl_hours': 10,
     'nk_placeholder': False,           # GTIN не из Нац. каталога: False — «не найден» как в ЧЗ, True — заглушка
     'suz_require_nk': False,           # заказ СУЗ на GTIN без опубликованной карточки НК отклоняется
@@ -1341,6 +1342,8 @@ def products_list(h, chz, **k):
 @route('POST', r'api/v3/true-api/cises/info|api/v4/true-api/cises/info')
 def cises_info(h, chz, data=None, **k):
     inn = h.inn()
+    if chz.s.setting('cises_fail'):
+        raise err(503, 'Сервис временно недоступен (эмулятор: cises_fail)')
     ok(chz.cises_info(as_list(data), inn))
 
 
