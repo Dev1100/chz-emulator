@@ -19,7 +19,7 @@
 			<Title formatted="false">
 				<v8:item>
 					<v8:lang>ru</v8:lang>
-					<v8:content>Настраивает базу на работу с эмулятором Честного Знака: тестовый контур ИС МП, прокси-сервер, подключение к СУЗ для выбранной организации; заполняет тестовыми данными (товары с GTIN и видом продукции, контрагенты, коды в эмуляторе). Для рабочих баз не применять.</v8:content>
+					<v8:content>Обработка настраивает информационную базу на работу с эмулятором Честного знака: включает тестовый контур ИС МП, настраивает прокси-сервер и подключение организации к СУЗ, заполняет базу тестовыми данными (товары с GTIN и видом продукции, контрагенты, коды маркировки в эмуляторе). Не предназначена для рабочих информационных баз.</v8:content>
 				</v8:item>
 			</Title>
 			<ContextMenu name="ПояснениеКонтекстноеМеню" id="2"/>
@@ -50,9 +50,15 @@
 					<Title>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>Подразделение (производственный объект СУЗ)</v8:content>
+							<v8:content>Подразделение</v8:content>
 						</v8:item>
 					</Title>
+					<ToolTip>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Подразделение указывается в настройке обмена с СУЗ как производственный объект</v8:content>
+						</v8:item>
+					</ToolTip>
 					<HorizontalStretch>true</HorizontalStretch>
 					<ContextMenu name="ПодразделениеКонтекстноеМеню" id="10"/>
 					<ExtendedTooltip name="ПодразделениеРасширеннаяПодсказка" id="11"/>
@@ -74,7 +80,7 @@
 			<Title>
 				<v8:item>
 					<v8:lang>ru</v8:lang>
-					<v8:content>Эмулятор и прокси</v8:content>
+					<v8:content>Эмулятор и прокси-сервер</v8:content>
 				</v8:item>
 			</Title>
 			<Group>Vertical</Group>
@@ -107,6 +113,12 @@
 							</Title>
 							<AutoMaxWidth>false</AutoMaxWidth>
 							<Width>7</Width>
+							<EditFormat>
+								<v8:item>
+									<v8:lang>ru</v8:lang>
+									<v8:content>ЧГ=0</v8:content>
+								</v8:item>
+							</EditFormat>
 							<ContextMenu name="ПортЭмулятораКонтекстноеМеню" id="23"/>
 							<ExtendedTooltip name="ПортЭмулятораРасширеннаяПодсказка" id="24"/>
 						</InputField>
@@ -117,9 +129,15 @@
 					<Title>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>Прокси настроить</v8:content>
+							<v8:content>Прокси-сервер</v8:content>
 						</v8:item>
 					</Title>
+					<ToolTip>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Для кого записать настройку прокси-сервера</v8:content>
+						</v8:item>
+					</ToolTip>
 					<DropListButton>true</DropListButton>
 					<HorizontalStretch>true</HorizontalStretch>
 					<ContextMenu name="ПроксиДляКонтекстноеМеню" id="26"/>
@@ -133,6 +151,7 @@
 							<v8:content>Включить тестовый контур ИС МП</v8:content>
 						</v8:item>
 					</Title>
+					<TitleLocation>Right</TitleLocation>
 					<ContextMenu name="ВключитьТестовыйКонтурКонтекстноеМеню" id="29"/>
 					<ExtendedTooltip name="ВключитьТестовыйКонтурРасширеннаяПодсказка" id="30"/>
 				</CheckBoxField>
@@ -141,9 +160,10 @@
 					<Title>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>Включить учёт маркируемой продукции ИС МП</v8:content>
+							<v8:content>Включить учет маркируемой продукции ИС МП</v8:content>
 						</v8:item>
 					</Title>
+					<TitleLocation>Right</TitleLocation>
 					<ContextMenu name="ВключитьУчетИСМПКонтекстноеМеню" id="32"/>
 					<ExtendedTooltip name="ВключитьУчетИСМПРасширеннаяПодсказка" id="33"/>
 				</CheckBoxField>
@@ -155,6 +175,7 @@
 							<v8:content>Зарегистрировать организацию участником оборота в эмуляторе</v8:content>
 						</v8:item>
 					</Title>
+					<TitleLocation>Right</TitleLocation>
 					<ContextMenu name="ЗарегистрироватьВЭмулятореКонтекстноеМеню" id="35"/>
 					<ExtendedTooltip name="ЗарегистрироватьВЭмулятореРасширеннаяПодсказка" id="36"/>
 				</CheckBoxField>
@@ -178,6 +199,7 @@
 							<v8:content>Настроить подключение к СУЗ для организации</v8:content>
 						</v8:item>
 					</Title>
+					<TitleLocation>Right</TitleLocation>
 					<ContextMenu name="НастроитьСУЗКонтекстноеМеню" id="40"/>
 					<ExtendedTooltip name="НастроитьСУЗРасширеннаяПодсказка" id="41"/>
 				</CheckBoxField>
@@ -203,9 +225,15 @@
 							<Title>
 								<v8:item>
 									<v8:lang>ru</v8:lang>
-									<v8:content>Идентификатор СУЗ (omsId)</v8:content>
+									<v8:content>Идентификатор СУЗ</v8:content>
 								</v8:item>
 							</Title>
+							<ToolTip>
+								<v8:item>
+									<v8:lang>ru</v8:lang>
+									<v8:content>Идентификатор СУЗ (omsId). Эмулятор принимает любое значение</v8:content>
+								</v8:item>
+							</ToolTip>
 							<AutoMaxWidth>false</AutoMaxWidth>
 							<Width>26</Width>
 							<ContextMenu name="ИдентификаторСУЗКонтекстноеМеню" id="48"/>
@@ -219,7 +247,7 @@
 			<Title>
 				<v8:item>
 					<v8:lang>ru</v8:lang>
-					<v8:content>Расширение «ЧЗ: без подписи» (если нет ЭП)</v8:content>
+					<v8:content>Работа без электронной подписи</v8:content>
 				</v8:item>
 			</Title>
 			<Group>Horizontal</Group>
@@ -229,7 +257,7 @@
 					<Title formatted="false">
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>Подставляет подпись-заглушку при отправке документов и получении токенов. Работает только при включённом тестовом контуре ИС МП.</v8:content>
+							<v8:content>Расширение "ЧЗ: без подписи" подставляет подпись-заглушку при отправке документов и получении ключа сессии. Действует только при включенном тестовом контуре ИС МП.</v8:content>
 						</v8:item>
 					</Title>
 					<ContextMenu name="ПояснениеРасширенияКонтекстноеМеню" id="53"/>
@@ -240,9 +268,15 @@
 					<Title>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>Установить / обновить</v8:content>
+							<v8:content>Установить</v8:content>
 						</v8:item>
 					</Title>
+					<ToolTip>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Установить или обновить расширение в информационной базе</v8:content>
+						</v8:item>
+					</ToolTip>
 					<ExtendedTooltip name="УстановитьРасширениеРасширеннаяПодсказка" id="56"/>
 				</Button>
 				<Button name="УдалитьРасширение" id="57">
@@ -253,6 +287,30 @@
 							<v8:content>Удалить</v8:content>
 						</v8:item>
 					</Title>
+					<ToolTip>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Удалить расширение из информационной базы</v8:content>
+						</v8:item>
+					</ToolTip>
+					<ToolTip>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Удалить расширение из информационной базы</v8:content>
+						</v8:item>
+					</ToolTip>
+					<ToolTip>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Удалить расширение из информационной базы</v8:content>
+						</v8:item>
+					</ToolTip>
+					<ToolTip>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Удалить расширение из информационной базы</v8:content>
+						</v8:item>
+					</ToolTip>
 					<ExtendedTooltip name="УдалитьРасширениеРасширеннаяПодсказка" id="58"/>
 				</Button>
 			</ChildItems>
@@ -277,7 +335,7 @@
 					<Title>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>Проверить связь</v8:content>
+							<v8:content>Проверить подключение</v8:content>
 						</v8:item>
 					</Title>
 					<ExtendedTooltip name="ПроверитьРасширеннаяПодсказка" id="64"/>
@@ -309,12 +367,13 @@
 			<Title>
 				<v8:item>
 					<v8:lang>ru</v8:lang>
-					<v8:content>Протокол</v8:content>
+					<v8:content>Результат</v8:content>
 				</v8:item>
 			</Title>
 			<ReadOnly>true</ReadOnly>
 			<TitleLocation>Top</TitleLocation>
 			<MultiLine>true</MultiLine>
+			<AutoMaxWidth>false</AutoMaxWidth>
 			<Height>10</Height>
 			<HorizontalStretch>true</HorizontalStretch>
 			<ContextMenu name="ПротоколКонтекстноеМеню" id="70"/>

@@ -3,7 +3,7 @@
 	<Title>
 		<v8:item>
 			<v8:lang>ru</v8:lang>
-			<v8:content>Выгрузка GTIN номенклатуры в Нац. каталог эмулятора ЧЗ</v8:content>
+			<v8:content>Выгрузка номенклатуры в Национальный каталог эмулятора ЧЗ</v8:content>
 		</v8:item>
 	</Title>
 	<AutoTitle>false</AutoTitle>
@@ -19,7 +19,7 @@
 			<Title formatted="false">
 				<v8:item>
 					<v8:lang>ru</v8:lang>
-					<v8:content>Собирает GTIN из штрихкодов номенклатуры (с видом продукции ИС, ТН ВЭД, наименованием) и создаёт по ним карточки в Национальном каталоге эмулятора. Неверные GTIN (контрольная цифра, внутренние штрихкоды на «2») показываются с причиной и не выгружаются.</v8:content>
+					<v8:content>Обработка определяет GTIN по штрихкодам номенклатуры и создает карточки товаров в Национальном каталоге эмулятора Честного знака. Строки с ошибками (неверная контрольная цифра, внутренний штрихкод с префиксом 2) не выгружаются, причина указывается в колонке "Ошибка".</v8:content>
 				</v8:item>
 			</Title>
 			<ContextMenu name="ПояснениеКонтекстноеМеню" id="2"/>
@@ -34,9 +34,15 @@
 					<Title>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>Организация (ИНН производителя)</v8:content>
+							<v8:content>Организация</v8:content>
 						</v8:item>
 					</Title>
+					<ToolTip>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>ИНН организации указывается в карточках товаров как ИНН производителя</v8:content>
+						</v8:item>
+					</ToolTip>
 					<HorizontalStretch>true</HorizontalStretch>
 					<ContextMenu name="ОрганизацияКонтекстноеМеню" id="7"/>
 					<ExtendedTooltip name="ОрганизацияРасширеннаяПодсказка" id="8"/>
@@ -46,9 +52,15 @@
 					<Title>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>Вид продукции ИС</v8:content>
+							<v8:content>Вид продукции</v8:content>
 						</v8:item>
 					</Title>
+					<ToolTip>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Отбор номенклатуры по виду продукции ИС МП</v8:content>
+						</v8:item>
+					</ToolTip>
 					<ClearButton>true</ClearButton>
 					<HorizontalStretch>true</HorizontalStretch>
 					<ContextMenu name="ВидПродукцииКонтекстноеМеню" id="10"/>
@@ -65,9 +77,16 @@
 					<Title>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>Только номенклатура с видом продукции ИС</v8:content>
+							<v8:content>Только маркируемая номенклатура</v8:content>
 						</v8:item>
 					</Title>
+					<TitleLocation>Right</TitleLocation>
+					<ToolTip>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Только номенклатура, для которой указан вид продукции ИС МП</v8:content>
+						</v8:item>
+					</ToolTip>
 					<ContextMenu name="ТолькоМаркируемыеКонтекстноеМеню" id="15"/>
 					<ExtendedTooltip name="ТолькоМаркируемыеРасширеннаяПодсказка" id="16"/>
 				</CheckBoxField>
@@ -76,7 +95,7 @@
 					<Title>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>Статус карточек</v8:content>
+							<v8:content>Статус карточки</v8:content>
 						</v8:item>
 					</Title>
 					<DropListButton>true</DropListButton>
@@ -90,7 +109,7 @@
 					<Title>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>Эмулятор</v8:content>
+							<v8:content>Адрес эмулятора</v8:content>
 						</v8:item>
 					</Title>
 					<AutoMaxWidth>false</AutoMaxWidth>
@@ -108,6 +127,12 @@
 					</Title>
 					<AutoMaxWidth>false</AutoMaxWidth>
 					<Width>6</Width>
+					<EditFormat>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>ЧГ=0</v8:content>
+						</v8:item>
+					</EditFormat>
 					<ContextMenu name="ПортЭмулятораКонтекстноеМеню" id="24"/>
 					<ExtendedTooltip name="ПортЭмулятораРасширеннаяПодсказка" id="25"/>
 				</InputField>
@@ -132,7 +157,7 @@
 					<Title>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>Выгрузить в Нац. каталог</v8:content>
+							<v8:content>Выгрузить в Национальный каталог</v8:content>
 						</v8:item>
 					</Title>
 					<DefaultButton>true</DefaultButton>
@@ -143,9 +168,15 @@
 					<Title>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>Отметить все без ошибок</v8:content>
+							<v8:content>Отметить все</v8:content>
 						</v8:item>
 					</Title>
+					<ToolTip>
+						<v8:item>
+							<v8:lang>ru</v8:lang>
+							<v8:content>Отметить все строки без ошибок</v8:content>
+						</v8:item>
+					</ToolTip>
 					<ExtendedTooltip name="ОтметитьВсеРасширеннаяПодсказка" id="33"/>
 				</Button>
 				<Button name="СнятьВсе" id="34">
@@ -153,7 +184,7 @@
 					<Title>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>Снять отметки</v8:content>
+							<v8:content>Снять все</v8:content>
 						</v8:item>
 					</Title>
 					<ExtendedTooltip name="СнятьВсеРасширеннаяПодсказка" id="35"/>
@@ -175,7 +206,7 @@
 					<Title>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content> </v8:content>
+							<v8:content>Выгружать</v8:content>
 						</v8:item>
 					</Title>
 					<ContextMenu name="ТоварыВыгрузитьКонтекстноеМеню" id="43"/>
@@ -234,7 +265,7 @@
 					<Title>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>ТГ</v8:content>
+							<v8:content>Товарная группа</v8:content>
 						</v8:item>
 					</Title>
 					<ReadOnly>true</ReadOnly>
@@ -257,7 +288,7 @@
 					<Title>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>Наименование в НК</v8:content>
+							<v8:content>Наименование в каталоге</v8:content>
 						</v8:item>
 					</Title>
 					<ContextMenu name="ТоварыНаименованиеКонтекстноеМеню" id="64"/>
@@ -268,7 +299,7 @@
 					<Title>
 						<v8:item>
 							<v8:lang>ru</v8:lang>
-							<v8:content>Проблема</v8:content>
+							<v8:content>Ошибка</v8:content>
 						</v8:item>
 					</Title>
 					<ReadOnly>true</ReadOnly>
@@ -288,6 +319,7 @@
 			<ReadOnly>true</ReadOnly>
 			<TitleLocation>Top</TitleLocation>
 			<MultiLine>true</MultiLine>
+			<AutoMaxWidth>false</AutoMaxWidth>
 			<Height>4</Height>
 			<HorizontalStretch>true</HorizontalStretch>
 			<ContextMenu name="ПротоколКонтекстноеМеню" id="70"/>
