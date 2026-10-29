@@ -10,16 +10,21 @@ subprocess.run([sys.executable, '-m', 'PyInstaller', '--noconfirm', '--onefile',
                 '--add-data', f'../ui.html{os.pathsep}.', '--add-data', f'../{CFE}{os.pathsep}extension',
                 '--add-data', f'../epf/ЭЧЗ_НастройкаПодключения.epf{os.pathsep}epf',
                 '--add-data', f'../epf/ЭЧЗ_ВыгрузкаВНК.epf{os.pathsep}epf',
+                '--add-data', f'../epf/ЭЧЗ_НастройкаПодключения_ОФ.epf{os.pathsep}epf',
+                '--add-data', f'../epf/ЭЧЗ_ВыгрузкаВНК_ОФ.epf{os.pathsep}epf',
                 '--hidden-import', 'scenario', '--paths', '.', 'chz_emulator.py'], check=True)
 os.makedirs('release', exist_ok=True)
 files = {'chz-emulator.exe': 'build/dist/chz-emulator.exe', 'ИНСТРУКЦИЯ.md': 'ИНСТРУКЦИЯ.md', 'ИНСТРУКЦИЯ_НЕ_КА.md': 'ИНСТРУКЦИЯ_НЕ_КА.md',
          'ИНСТРУКЦИЯ_СУЗ.md': 'ИНСТРУКЦИЯ_СУЗ.md',
          'ЧЗ_БезПодписи.cfe': CFE, 'CHZ_BezPodpisi.cfe': CFE,
          'ЭЧЗ_НастройкаПодключения.epf': 'epf/ЭЧЗ_НастройкаПодключения.epf', 'CHZ_Setup.epf': 'epf/ЭЧЗ_НастройкаПодключения.epf',
-         'ЭЧЗ_ВыгрузкаВНК.epf': 'epf/ЭЧЗ_ВыгрузкаВНК.epf', 'CHZ_ExportNK.epf': 'epf/ЭЧЗ_ВыгрузкаВНК.epf'}   # латинская копия — для релиза GitHub
+         'ЭЧЗ_ВыгрузкаВНК.epf': 'epf/ЭЧЗ_ВыгрузкаВНК.epf', 'CHZ_ExportNK.epf': 'epf/ЭЧЗ_ВыгрузкаВНК.epf',
+         'ЭЧЗ_НастройкаПодключения_ОФ.epf': 'epf/ЭЧЗ_НастройкаПодключения_ОФ.epf', 'CHZ_Setup_OF.epf': 'epf/ЭЧЗ_НастройкаПодключения_ОФ.epf',
+         'ЭЧЗ_ВыгрузкаВНК_ОФ.epf': 'epf/ЭЧЗ_ВыгрузкаВНК_ОФ.epf', 'CHZ_ExportNK_OF.epf': 'epf/ЭЧЗ_ВыгрузкаВНК_ОФ.epf'}   # латинская копия — для релиза GitHub
 for name, src in files.items():
     shutil.copyfile(src, os.path.join('release', name))
 with zipfile.ZipFile('release/chz-emulator.zip', 'w', zipfile.ZIP_DEFLATED) as z:
-    for name in ('chz-emulator.exe', 'ИНСТРУКЦИЯ.md', 'ИНСТРУКЦИЯ_НЕ_КА.md', 'ИНСТРУКЦИЯ_СУЗ.md', 'ЧЗ_БезПодписи.cfe', 'ЭЧЗ_НастройкаПодключения.epf', 'ЭЧЗ_ВыгрузкаВНК.epf'):
+    for name in ('chz-emulator.exe', 'ИНСТРУКЦИЯ.md', 'ИНСТРУКЦИЯ_НЕ_КА.md', 'ИНСТРУКЦИЯ_СУЗ.md', 'ЧЗ_БезПодписи.cfe', 'ЭЧЗ_НастройкаПодключения.epf', 'ЭЧЗ_ВыгрузкаВНК.epf',
+                 'ЭЧЗ_НастройкаПодключения_ОФ.epf', 'ЭЧЗ_ВыгрузкаВНК_ОФ.epf'):
         z.write(os.path.join('release', name), name)
 print('Готово: release/')
