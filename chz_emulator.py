@@ -829,7 +829,9 @@ class Chz:
             if errors and self.s.setting('strict'):
                 continue
             if t in ATK:
-                parent = parent or ('ATK' + rnd(17, string.digits))
+                # АТК: ИНН заявителя (12 цифр, с ведущими нулями) + ДДММГГ + 7 знаков уникальности
+                parent = parent or (str(inn or '').zfill(12) + dt.datetime.now().strftime('%d%m%y')
+                                    + rnd(7, string.ascii_letters + string.digits))
                 ptype = 'ATK'
             else:
                 ptype = 'SET' if t == 'SETS_AGGREGATION' else ('LEVEL2' if parent and parent.startswith('00') else 'LEVEL1')
@@ -852,7 +854,9 @@ class Chz:
                                    introduced_date=iso(), last_doc=doc_id)
             u['_parent'] = parent
         if t in ATK:
-            content['atk'] = [u.get('_parent') for u in units]
+            # doc/{id}/info?body=true: один документ ATK_AGGREGATION = один АТК, КА читает body.atk как строку
+            atks = [u.get('_parent') for u in units]
+            content['atk'] = atks[0] if len(atks) == 1 else atks
             self.s.x('UPDATE docs SET body=? WHERE id=?', json.dumps(content, ensure_ascii=False), doc_id)
         return errors if self.s.setting('strict') else []
 
