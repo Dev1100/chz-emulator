@@ -121,6 +121,30 @@ def main():
     st, pub = cl.call('POST', 'api/v3/true-api/agreement-registry/publish', {'documentId': ag['id'], 'signature': 'x'})
     assert pub['status'] == 'PUBLISHED'
 
+    # радиоэлектроника (True API v741): код группы 28, остатки только REAPPLY, ввод с причиной, XML-вариант типа
+    assert E.PG_IDS['radio'] == 28 and E.PG_IDS['gadgets'] == 51 and 'radio' in E.PG_NAMES
+    r = mk('APPLIED', pg='radio', release='REMAINS')[0]
+    st, info = cl.call('POST', 'api/v3/true-api/cises/info', [r])
+    assert info[0]['cisInfo']['productGroupId'] == 28 and info[0]['cisInfo']['emissionType'] == 'REAPPLY', info
+    d = send('LP_INTRODUCE_OST', {'trade_participant_inn': INN, 'products_list': [{'ki': r}]})
+    assert d['status'] == 'CHECKED_OK' and srv.chz.s.find_code(r)['status'] == 'INTRODUCED', d
+    r2 = mk('APPLIED', pg='radio')[0]                       # эмиссия LOCAL - в остатки нельзя
+    d = send('LP_INTRODUCE_OST', {'trade_participant_inn': INN, 'products_list': [{'ki': r2}]})
+    assert d['status'] == 'CHECKED_NOT_OK', d
+    r3 = mk('APPLIED', pg='radio', release='REMAINS')[0]
+    d = send('LK_UNIVERSAL_INTRODUCE', {'participant_inn': INN, 'reason_type': 'DISMANTLING',
+                                        'products': [{'uit_code': r3}]})
+    assert d['status'] == 'CHECKED_OK' and srv.chz.s.find_code(r3)['status'] == 'INTRODUCED', d
+    g = mk('APPLIED', pg='gadgets', release='REMAINS')[0]   # разукомплектация - только «Радиоэлектронная продукция»
+    d = send('LK_UNIVERSAL_INTRODUCE', {'participant_inn': INN, 'reason_type': 'DISMANTLING',
+                                        'products': [{'uit_code': g}]})
+    assert d['status'] == 'CHECKED_NOT_OK', d
+    x = mk('APPLIED', pg='radio')[0]
+    d = send('LP_INTRODUCE_GOODS_XML', None, 'XML',
+             f'<introduce_rf><trade_participant_inn>{INN}</trade_participant_inn>'
+             f'<products_list><product><ki>{x}</ki></product></products_list></introduce_rf>')
+    assert d['status'] == 'CHECKED_OK' and srv.chz.s.find_code(x)['status'] == 'INTRODUCED', d
+
     # без токена — 401, неизвестный метод — 404, битый JSON — 400
     cl.token = None
     assert cl.call('POST', 'api/v3/true-api/cises/info', [packs[0]])[0] == 401

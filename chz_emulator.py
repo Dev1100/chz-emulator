@@ -103,10 +103,17 @@ SUZ_TEMPLATES = {   # templateId СУЗ: (товарная группа, дли�
 }
 SUZ_TAILS = {'S': [('93', 4)], 'L44': [('91', 4), ('92', 44)], 'L88': [('91', 4), ('92', 88)]}
 PG_ALIASES = {'cosmetics': 'chemistry'}
+# True API v741, Приложение 1, справочник «Список поддерживаемых товарных групп»: код группы → код в БД
+# (productGroupId в cises/info, groupIds разрешительного режима). pharma (7) в справочнике нет — МДЛП,
+# оставлена для старых данных эмулятора.
 PG_IDS = {'lp': 1, 'shoes': 2, 'tobacco': 3, 'perfumery': 4, 'tires': 5, 'electronics': 6,
-          'pharma': 7, 'milk': 8, 'bicycle': 9, 'wheelchairs': 10, 'otp': 12, 'water': 13,
+          'pharma': 7, 'milk': 8, 'bicycle': 9, 'wheelchairs': 10, 'alcohol': 11, 'otp': 12, 'water': 13,
           'furs': 14, 'beer': 15, 'ncp': 16, 'bio': 17, 'antiseptic': 19, 'petfood': 20,
-          'seafood': 21, 'nabeer': 22, 'softdrinks': 23, 'vetpharma': 26, 'grocery': 32}
+          'seafood': 21, 'nabeer': 22, 'softdrinks': 23, 'meat': 25, 'vetpharma': 26, 'toys': 27,
+          'radio': 28, 'titan': 31, 'conserve': 32, 'vegetableoil': 33, 'opticfiber': 34, 'chemistry': 35,
+          'books': 36, 'grocery': 37, 'pharmaraw': 38, 'construction': 39, 'fire': 40, 'heater': 41,
+          'cableraw': 42, 'autofluids': 43, 'polymer': 44, 'sweets': 45, 'carparts': 48, 'furslp': 49,
+          'nicotindev': 50, 'gadgets': 51, 'frozen': 52, 'fertilizers': 53, 'homeware': 54, 'pyrotechnics': 59}
 # Товарные группы для выбора в интерфейсе: код ЧЗ → название
 PG_NAMES = {'lp': 'Лёгкая промышленность (одежда, бельё)', 'shoes': 'Обувь', 'perfumery': 'Парфюмерия',
             'tires': 'Шины и покрышки', 'electronics': 'Фототехника и электроника', 'tobacco': 'Табак',
@@ -117,13 +124,40 @@ PG_NAMES = {'lp': 'Лёгкая промышленность (одежда, бе
             'petfood': 'Корма для животных', 'seafood': 'Морепродукты', 'grocery': 'Бакалея',
             'vegetableoil': 'Растительные масла', 'conserve': 'Консервы', 'sweets': 'Кондитерские изделия',
             'tea_coffee': 'Чай и кофе', 'cosmetics': 'Косметика', 'chemistry': 'Косметика, бытовая химия и парфюмерия (в КА — «Парфюмерия»)',
-            'bicycle': 'Велосипеды', 'wheelchairs': 'Кресла-коляски', 'furs': 'Изделия из меха'}
+            'bicycle': 'Велосипеды', 'wheelchairs': 'Медицинские изделия (кресла-коляски)', 'furs': 'Изделия из меха',
+            'radio': 'Радиоэлектронная продукция',
+            'gadgets': 'Радиоэлектронная продукция. Ноутбуки и смартфоны',
+            'nicotindev': 'Радиоэлектронная продукция. Электронные системы доставки никотина',
+            'toys': 'Игры и игрушки для детей', 'meat': 'Мясные изделия', 'alcohol': 'Алкоголь',
+            'titan': 'Титановая металлопродукция', 'opticfiber': 'Оптоволокно и оптоволоконная продукция',
+            'books': 'Печатная продукция', 'pharmaraw': 'Фармацевтическое сырьё, лекарственные средства',
+            'construction': 'Строительные материалы', 'fire': 'Пожарная безопасность',
+            'heater': 'Отопительные приборы', 'cableraw': 'Кабельно-проводниковая продукция',
+            'autofluids': 'Моторные масла', 'polymer': 'Полимерные трубы',
+            'carparts': 'Автозапчасти и комплектующие транспортных средств', 'furslp': 'Натуральный мех',
+            'frozen': 'Полуфабрикаты и замороженные продукты',
+            'fertilizers': 'Удобрения в потребительской упаковке', 'homeware': 'Товары для дома и интерьера',
+            'pyrotechnics': 'Пиротехнические изделия'}
+# Группы, где «Ввод в оборот. Остатки» принимает только КИ с типом эмиссии REAPPLY и без КИТУ (True API 4.1.4.6)
+REAPPLY_PGS = {'toys', 'chemistry', 'radio', 'gadgets'}
+OST_NO_KITU_PGS = REAPPLY_PGS | {'lp', 'wheelchairs'}
+# «Ввод в оборот. С причиной» (LK_UNIVERSAL_INTRODUCE, True API 4.1.4.10): допустимые причины по группам
+UNIVERSAL_INTRODUCE_REASONS = {
+    'COMMISSIONAIRE': {'bicycle', 'toys', 'chemistry', 'furslp', 'radio', 'gadgets'},
+    'DISMANTLING': {'radio'},
+    'RESALE': {'carparts', 'toys', 'chemistry', 'autofluids', 'furslp', 'radio', 'gadgets', 'construction'},
+}
+
+
+def base_doc_type(t):
+    """Тип документа без суффикса формата: LP_INTRODUCE_GOODS_XML / _CSV обрабатываются как LP_INTRODUCE_GOODS."""
+    return re.sub(r'_(XML|CSV)$', '', t or '')
 
 INTRODUCE = ('LP_INTRODUCE_GOODS', 'LP_INTRODUCE_OST', 'LP_INTRODUCE_GOODS_CROSSBORDER',
              'LP_GOODS_IMPORT', 'LP_FTS_INTRODUCE', 'LP_CONTRACT_COMMISSIONING', 'LP_RETURN',
              'LP_INTRODUCE_GOODS_INDIVIDUALS', 'LK_CONTRACT_COMMISSIONING', 'LK_INDI_COMMISSIONING',
              'LP_INTRODUCE_OST_CSV', 'CROSSBORDER', 'FURS_FTS_INTRODUCE',
-             'LP_GOODS_IMPORT_AUTO', 'FURS_IMPORT', 'LP_FTS_INTRODUCE_AUTO')
+             'LP_GOODS_IMPORT_AUTO', 'FURS_IMPORT', 'LP_FTS_INTRODUCE_AUTO', 'LK_UNIVERSAL_INTRODUCE')
 RETIRE = ('LK_RECEIPT', 'LP_SHIP_GOODS_CROSSBORDER', 'EAS_CROSSBORDER_EXPORT', 'EAS_CROSSBORDER',
           'LK_REMARK_RETIRE', 'LP_RECEIPT', 'LK_KM_WITHDRAWAL', 'RECEIPT')
 RETIRE_CANCEL = ('LK_RECEIPT_CANCEL', 'RECEIPT_RETURN')
@@ -174,10 +208,14 @@ def xml_to_dict(el):
     return d
 
 
-def emission_type(order_body):
-    """Способ выпуска из заказа СУЗ (releaseMethodType) → emissionType ответа cises/info."""
+def emission_type(order_body, pg=None):
+    """Способ выпуска из заказа СУЗ (releaseMethodType) → emissionType ответа cises/info.
+    Остатки игрушек, косметики и радиоэлектроники в ГИС МТ имеют тип эмиссии REAPPLY («Маркировка вне
+    производства или импорта»): только такие КИ принимает «Ввод в оборот. Остатки» (True API 4.1.4.6)."""
     r = (order_body.get('releaseMethodType') or (order_body.get('attributes') or {}).get('releaseMethodType')
          or 'PRODUCTION').upper()
+    if r == 'REMAINS' and PG_ALIASES.get(pg, pg) in REAPPLY_PGS:
+        return 'REAPPLY'
     return {'PRODUCTION': 'LOCAL', 'PRODUCED_IN_RF': 'LOCAL', 'IMPORT': 'FOREIGN',
             'IMPORTED_INTO_RF': 'FOREIGN'}.get(r, r)
 
@@ -547,14 +585,15 @@ class Chz:
                             'reg_number') or doc_id[:8]
         doc_date = self.first(content, 'document_date', 'doc_date', 'documentDate', 'action_date',
                               'transfer_date', 'production_date') or iso()
-        if doc_type in UTD and isinstance(content, dict):
+        kind = base_doc_type(doc_type)
+        if kind in UTD and isinstance(content, dict):
             def inn_under(node, key):
                 part = self.first(content, key) if isinstance(content, dict) else None
                 return self.first(part, 'ИННЮЛ', 'ИННФЛ') if isinstance(part, dict) else None
             sender = inn_under(content, 'СвПрод') or sender
             receiver = inn_under(content, 'СвПокуп') or receiver
             number = self.first(content, 'НомерДок', 'НомерСчФ') or number
-        if doc_type in ACCEPT:   # приёмку подаёт получатель
+        if kind in ACCEPT:   # приёмку подаёт получатель
             sender, receiver = (self.first(content, 'trade_participant_inn_sender') or sender), req_inn
         ready = time.time() + float(self.s.setting('doc_delay_sec') or 0)
         self.s.x('INSERT INTO docs VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', doc_id, doc_type, pg, fmt,
@@ -565,12 +604,12 @@ class Chz:
             if self.s.setting('reject_documents'):
                 errors = [self.s.setting('reject_reason')]
             else:
-                errors = self.apply_document(doc_id, doc_type, content, str(sender), receiver, req_inn, pg)
+                errors = self.apply_document(doc_id, kind, content, str(sender), receiver, req_inn, pg)
         except Exception as e:
             errors = [f'Ошибка обработки в эмуляторе: {e}']
             traceback.print_exc()
-        status = 'CHECKED_NOT_OK' if errors else ('WAIT_ACCEPTANCE' if doc_type in SHIP
-                                                  or doc_type in UTD and receiver else 'CHECKED_OK')
+        status = 'CHECKED_NOT_OK' if errors else ('WAIT_ACCEPTANCE' if kind in SHIP
+                                                  or kind in UTD and receiver else 'CHECKED_OK')
         self.s.x('UPDATE docs SET status=?, errors=? WHERE id=?', status,
                  json.dumps(errors, ensure_ascii=False), doc_id)
         return doc_id, None
@@ -611,7 +650,33 @@ class Chz:
 
         upd = {}
         if t in INTRODUCE:
+            reason = str(self.first(content, 'reason_type') or '').upper() if t == 'LK_UNIVERSAL_INTRODUCE' else ''
             for c in codes:
+                cpg = PG_ALIASES.get(c['pg'] or pg, c['pg'] or pg)
+                emis = json.loads(c['extra'] or '{}').get('emissionType') or 'LOCAL'
+                if t == 'LK_UNIVERSAL_INTRODUCE':
+                    # True API 4.1.4.10: причина зависит от группы; COMMISSIONAIRE и DISMANTLING — только
+                    # нанесённая единица с эмиссией REAPPLY; RESALE — ещё и выбывшая единица (собственные нужды)
+                    if strict and reason not in UNIVERSAL_INTRODUCE_REASONS:
+                        errors.append(f"{c['cis']}: недопустимая причина ввода «{reason}»")
+                    elif strict and cpg not in UNIVERSAL_INTRODUCE_REASONS[reason]:
+                        errors.append(f"{c['cis']}: причина «{reason}» недоступна для товарной группы {cpg}")
+                    elif strict and (c['package_type'] or 'UNIT') != 'UNIT':
+                        errors.append(f"{c['cis']}: требуется тип упаковки UNIT ({c['package_type']})")
+                    elif strict and not (c['status'] == 'APPLIED' and (emis == 'REAPPLY' or reason == 'RESALE'
+                                                                        and cpg == 'carparts')
+                                         or reason == 'RESALE' and c['status'] == 'RETIRED'):
+                        errors.append(f"{c['cis']}: недопустимый статус {c['status']} / тип эмиссии {emis} "
+                                      f"для ввода с причиной «{reason}»")
+                    if strict and c['owner_inn'] and c['owner_inn'] != sender:
+                        errors.append(f"{c['cis']}: отправитель {sender} не собственник кода ({c['owner_inn']})")
+                    continue
+                if strict and t.startswith('LP_INTRODUCE_OST') and cpg in REAPPLY_PGS and emis != 'REAPPLY':
+                    errors.append(f"{c['cis']}: для группы {cpg} в остатки вводятся только КИ с типом эмиссии "
+                                  f"REAPPLY (сейчас {emis})")
+                if strict and t.startswith('LP_INTRODUCE_OST') and cpg in OST_NO_KITU_PGS \
+                        and c['package_type'] in KITU_TYPES:
+                    errors.append(f"{c['cis']}: указание КИТУ недоступно для группы {cpg}")
                 # True API: во всех видах ввода в оборот КИ в статусе «APPLIED» («Нанесён», после отчёта
                 # о нанесении); «EMITTED» — отказ, как в ГИС МТ. Возврат в оборот — из «RETIRED»
                 if strict and t == 'LP_RETURN' and c['status'] != 'RETIRED':
@@ -971,7 +1036,7 @@ class Chz:
                 cis, full = make_code(gtin, o['pg'], short, tpl)
             fulls.append(full)
             rows.append((cis, full, gtin, o['pg'], 'EMITTED', None, o['inn'], o['inn'], ptype, None, iso(),
-                         None, None, None, None, None, o['id'], json.dumps({'emissionType': emission_type(body)})))
+                         None, None, None, None, None, o['id'], json.dumps({'emissionType': emission_type(body, o['pg'])})))
         self.s.many('INSERT OR REPLACE INTO codes VALUES(' + ','.join('?' * 18) + ')', rows)
         block = str(uuid.uuid4())
         self.s.x('INSERT INTO blocks VALUES(?,?,?,?,?)', block, o['id'], gtin, iso(), json.dumps(fulls))
@@ -2071,7 +2136,7 @@ def ui_codes(h, chz, data=None, **k):
     gtin = d.get('gtin') or make_gtin()
     owner = d.get('owner_inn') or chz.s.setting('default_inn')
     status = d.get('status') or 'INTRODUCED'
-    extra = json.dumps({'emissionType': emission_type({'releaseMethodType': d.get('release') or 'PRODUCTION'})})
+    extra = json.dumps({'emissionType': emission_type({'releaseMethodType': d.get('release') or 'PRODUCTION'}, pg)})
     if not chz.s.nk_card(gtin):
         chz.s.nk_put(gtin, d.get('name'), pg, d.get('producer_inn') or owner, d.get('tnved') or '', d.get('brand') or '')
     rows, out = [], []
