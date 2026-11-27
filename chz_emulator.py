@@ -866,11 +866,37 @@ class Chz:
                     errors.append(f"{k}: уже агрегирован в {c['parent']}")
                 else:
                     found.append(c)
-            is_set = t.startswith('SETS_AGGREGATION')
             pc = self.s.find_code(parent) if parent else None
             if pc:
                 parent = pc['cis']           # КИ набора/упаковки мог прийти с криптохвостом
-            if is_set and self.s.setting('strict'):
+            # True API 4.1.2.1: набор и мультитоварный набор в AGGREGATION_DOCUMENT передаются с
+            # unitSerialNumberType = PRODUCT_SET
+            is_multiset = (t.startswith('AGGREGATION_DOCUMENT')
+                           and (u.get('unitSerialNumberType') or u.get('unit_serial_number_type')) == 'PRODUCT_SET')
+            is_set = t.startswith('SETS_AGGREGATION') or is_multiset
+            set_pg = (pc['pg'] if pc else None) or pg
+            if (t.startswith('AGGREGATION_DOCUMENT') and not is_multiset and pc and pc['package_type'] == 'SET'
+                    and self.s.setting('strict')):
+                errors.append(f"{parent}: для КИН в AGGREGATION_DOCUMENT обязателен unitSerialNumberType = PRODUCT_SET")
+            if is_multiset and self.s.setting('strict'):
+                # «Особенности формирования мультитоварного набора»: все вложения в статусе INTRODUCED,
+                # товарная группа хотя бы одного вложения совпадает с товарной группой набора, набор APPLIED
+                not_intr = [c['cis'] for c in found if c['status'] != 'INTRODUCED']
+                if not_intr:
+                    errors.append(f"{parent}: вложения мультитоварного набора должны быть в статусе INTRODUCED, "
+                                  f"не в обороте: {', '.join(not_intr)}")
+                if found and set_pg and all(c['pg'] != set_pg for c in found):
+                    errors.append(f"{parent}: товарная группа набора {set_pg} не совпадает ни с одним вложением")
+                if pc and pc['status'] != 'APPLIED':
+                    errors.append(f"{parent}: набор должен быть в статусе APPLIED (отчёт о нанесении), "
+                                  f"сейчас {pc['status']}")
+            elif is_set and self.s.setting('strict'):
+                # SETS_AGGREGATION - монотоварный набор: вложения других товарных групп допустимы только в
+                # мультитоварном наборе (AGGREGATION_DOCUMENT + PRODUCT_SET)
+                alien = [c['cis'] for c in found if set_pg and c['pg'] and c['pg'] != set_pg]
+                if alien:
+                    errors.append(f"{parent}: вложения другой товарной группы ({', '.join(alien)}) - нужен "
+                                  f"мультитоварный набор AGGREGATION_DOCUMENT с unitSerialNumberType = PRODUCT_SET")
                 # True API, «Особенности формирования набора»: вложения в одном статусе APPLIED или
                 # INTRODUCED, набор (КИН, выпущенный СУЗ) — в статусе APPLIED
                 sts = {c['status'] for c in found}
@@ -899,7 +925,7 @@ class Chz:
                                     + rnd(7, string.ascii_letters + string.digits))
                 ptype = 'ATK'
             else:
-                ptype = 'SET' if t == 'SETS_AGGREGATION' else ('LEVEL2' if parent and parent.startswith('00') else 'LEVEL1')
+                ptype = 'SET' if is_set else ('LEVEL2' if parent and parent.startswith('00') else 'LEVEL1')
             st = found[0]['status'] if found else 'APPLIED'
             gt = found[0]['gtin'] if found and ptype != 'LEVEL2' else None
             if not self.s.find_code(parent):

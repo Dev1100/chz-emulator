@@ -145,6 +145,32 @@ def main():
              f'<products_list><product><ki>{x}</ki></product></products_list></introduce_rf>')
     assert d['status'] == 'CHECKED_OK' and srv.chz.s.find_code(x)['status'] == 'INTRODUCED', d
 
+    # мультитоварный набор (True API 4.1.2.1): AGGREGATION_DOCUMENT + unitSerialNumberType = PRODUCT_SET
+    def kin(pg):
+        k = mk('APPLIED', pg=pg)[0]
+        srv.chz.s.x("UPDATE codes SET package_type='SET' WHERE cis=?", k)
+        return k
+    def unit(k, kids, typ='PRODUCT_SET'):
+        u = {'unitSerialNumber': k, 'aggregationType': 'AGGREGATION', 'sntins': kids}
+        if typ:
+            u['unitSerialNumberType'] = typ
+        return {'participantId': INN, 'aggregationUnits': [u]}
+    s1, kids1 = kin('chemistry'), mk('INTRODUCED', 2, pg='chemistry') + mk('INTRODUCED', pg='perfumery')
+    d = send('SETS_AGGREGATION', unit(s1, kids1, None))
+    assert d['status'] == 'CHECKED_NOT_OK' and srv.chz.s.find_code(s1)['status'] == 'APPLIED', d
+    d = send('AGGREGATION_DOCUMENT', unit(s1, kids1, None))
+    assert d['status'] == 'CHECKED_NOT_OK', d
+    d = send('AGGREGATION_DOCUMENT', unit(s1, kids1))
+    assert d['status'] == 'CHECKED_OK', d
+    assert srv.chz.s.find_code(s1)['status'] == 'INTRODUCED' and srv.chz.s.find_code(s1)['package_type'] == 'SET'
+    assert all(srv.chz.s.find_code(k)['parent'] == s1 for k in kids1)
+    s2 = kin('chemistry')
+    d = send('AGGREGATION_DOCUMENT', unit(s2, mk('APPLIED', pg='chemistry') + mk('INTRODUCED', pg='perfumery')))
+    assert d['status'] == 'CHECKED_NOT_OK', d       # вложения мультитоварного набора - только INTRODUCED
+    s3 = kin('chemistry')
+    d = send('AGGREGATION_DOCUMENT', unit(s3, mk('INTRODUCED', 2, pg='perfumery')))
+    assert d['status'] == 'CHECKED_NOT_OK', d       # товарная группа набора не совпала ни с одним вложением
+
     # без токена — 401, неизвестный метод — 404, битый JSON — 400
     cl.token = None
     assert cl.call('POST', 'api/v3/true-api/cises/info', [packs[0]])[0] == 401
